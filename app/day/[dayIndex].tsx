@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import Animated, { FadeIn } from 'react-native-reanimated';
+import { Swiper, type SwiperCardRefType } from 'rn-swiper-list';
 import { useWeekPlan } from '@/hooks/useWeekPlan';
 import BreakfastCard from '@/components/BreakfastCard';
 import { getCzechDayName, formatCzechDate } from '@/data/holidays';
@@ -12,10 +13,13 @@ import { Breakfast } from '@/types';
 export default function DayDetailScreen() {
   const { dayIndex } = useLocalSearchParams<{ dayIndex: string }>();
   const index = parseInt(dayIndex || '0', 10);
-  const { plan, selectBreakfast } = useWeekPlan();
+  const { plan, selectBreakfast, generateMoreOptions } = useWeekPlan();
   const router = useRouter();
-  const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [selected, setSelected] = useState(false);
+  const [selectedName, setSelectedName] = useState('');
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [allSwiped, setAllSwiped] = useState(false);
+  const swiperRef = useRef<SwiperCardRefType>(null);
 
   if (!plan) return null;
 
@@ -25,93 +29,108 @@ export default function DayDetailScreen() {
   const date = new Date(day.date + 'T00:00:00');
   const options = day.options;
 
-  // Put currently selected option first if revisiting
-  const orderedOptions = day.selectedId
-    ? [
-        ...options.filter((b) => b.id === day.selectedId),
-        ...options.filter((b) => b.id !== day.selectedId),
-      ]
-    : options;
-
-  const handleSelect = async (breakfast: Breakfast) => {
-    await selectBreakfast(index, breakfast.id);
+  const handleSwipeRight = (cardIndex: number) => {
+    const breakfast = options[cardIndex];
+    if (!breakfast) return;
+    selectBreakfast(index, breakfast.id);
+    setSelectedName(breakfast.name);
     setSelected(true);
-    setTimeout(() => router.back(), 600);
+    setTimeout(() => router.back(), 800);
+  };
+
+  const handleSwipedAll = () => {
+    setAllSwiped(true);
+  };
+
+  const handleGenerateMore = () => {
+    generateMoreOptions(index);
+    setAllSwiped(false);
+    setCurrentIndex(0);
   };
 
   if (selected) {
     return (
       <SafeAreaView style={styles.confirmationContainer}>
-        <Text style={styles.confirmationEmoji}>✅</Text>
-        <Text style={styles.confirmationText}>Vybráno!</Text>
+        <Animated.View entering={FadeIn.duration(300)} style={styles.confirmationContent}>
+          <Text style={styles.confirmationEmoji}>✅</Text>
+          <Text style={styles.confirmationText}>Vybráno!</Text>
+          <Text style={styles.confirmationName}>{selectedName}</Text>
+        </Animated.View>
       </SafeAreaView>
     );
   }
 
-  const currentBreakfast = orderedOptions[currentCardIndex];
-  const isLast = currentCardIndex >= orderedOptions.length - 1;
-
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <Pressable onPress={() => router.back()} style={styles.backButton}>
-            <Text style={styles.backText}>← Zpět</Text>
-          </Pressable>
-          <View style={styles.headerCenter}>
-            <Text style={styles.dayTitle}>
-              {getCzechDayName(date)} {formatCzechDate(date)}
-            </Text>
-            <Text style={styles.counter}>
-              {currentCardIndex + 1}/{orderedOptions.length}
-            </Text>
-          </View>
-          <View style={{ width: 60 }} />
+    <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <Pressable onPress={() => router.back()} style={styles.backButton}>
+          <Text style={styles.backText}>← Zpět</Text>
+        </Pressable>
+        <View style={styles.headerCenter}>
+          <Text style={styles.dayTitle}>
+            {getCzechDayName(date)} {formatCzechDate(date)}
+          </Text>
+          <Text style={styles.counter}>
+            {Math.min(currentIndex + 1, options.length)}/{options.length}
+          </Text>
         </View>
+        <View style={{ width: 60 }} />
+      </View>
 
-        {day.isWeekend && (
-          <Text style={styles.freeLabel}>Víkend — čas na pořádnou snídani!</Text>
-        )}
-        {day.isHoliday && (
-          <Text style={styles.freeLabel}>Svátek — dopřej si něco lepšího!</Text>
-        )}
+      {(day.isWeekend || day.isHoliday) && (
+        <Text style={styles.freeLabel}>
+          {day.isHoliday ? 'Svátek — dopřej si!' : 'Víkend — čas na pořádnou snídani!'}
+        </Text>
+      )}
 
-        {currentBreakfast && (
-          <View style={styles.cardContainer}>
-            {day.selectedId === currentBreakfast.id && (
-              <View style={styles.currentBadge}>
-                <Text style={styles.currentBadgeText}>Aktuální výběr</Text>
+      {allSwiped ? (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyEmoji}>🤔</Text>
+          <Text style={styles.emptyTitle}>Prošla jsi všechny možnosti</Text>
+          <Pressable onPress={handleGenerateMore} style={styles.moreButton}>
+            <Text style={styles.moreButtonText}>Vymysli další!</Text>
+          </Pressable>
+          <Pressable onPress={() => router.back()} style={styles.backLinkButton}>
+            <Text style={styles.backLinkText}>Zpět na týden</Text>
+          </Pressable>
+        </View>
+      ) : (
+        <View style={styles.swiperContainer}>
+          <Swiper
+            ref={swiperRef}
+            data={options}
+            renderCard={(breakfast: Breakfast) => (
+              <BreakfastCard
+                breakfast={breakfast}
+                isCurrentSelection={day.selectedId === breakfast.id}
+              />
+            )}
+            keyExtractor={(breakfast: Breakfast) => breakfast.id}
+            onSwipeRight={handleSwipeRight}
+            onSwipedAll={handleSwipedAll}
+            onIndexChange={setCurrentIndex}
+            disableTopSwipe
+            disableBottomSwipe
+            OverlayLabelRight={() => (
+              <View style={styles.overlayRight}>
+                <Text style={styles.overlayRightText}>Chci! ✅</Text>
               </View>
             )}
-            <BreakfastCard breakfast={currentBreakfast} showIngredients />
-          </View>
-        )}
-
-        <View style={styles.buttonRow}>
-          <Pressable
-            onPress={() => {
-              if (!isLast) setCurrentCardIndex((i) => i + 1);
-            }}
-            style={[styles.actionButton, styles.skipButton, isLast && styles.disabledButton]}
-            disabled={isLast}
-          >
-            <Text style={[styles.skipText, isLast && styles.disabledText]}>← Další</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => currentBreakfast && handleSelect(currentBreakfast)}
-            style={[styles.actionButton, styles.selectButton]}
-          >
-            <Text style={styles.selectText}>Tohle chci! →</Text>
-          </Pressable>
+            OverlayLabelLeft={() => (
+              <View style={styles.overlayLeft}>
+                <Text style={styles.overlayLeftText}>Další ❌</Text>
+              </View>
+            )}
+          />
         </View>
+      )}
 
-        {isLast && (
-          <Text style={styles.endHint}>
-            To je vše! Zvol si z těchto možností.
-          </Text>
-        )}
-      </SafeAreaView>
-    </GestureHandlerRootView>
+      {!allSwiped && (
+        <View style={styles.swipeHintBar}>
+          <Text style={styles.hintText}>← Swipni doleva pro další, doprava pro výběr →</Text>
+        </View>
+      )}
+    </SafeAreaView>
   );
 }
 
@@ -153,74 +172,91 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontWeight: '600',
     fontSize: 14,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
   },
-  cardContainer: {
+  swiperContainer: {
     flex: 1,
     paddingHorizontal: spacing.md,
-    paddingBottom: spacing.md,
   },
-  currentBadge: {
-    position: 'absolute',
-    top: spacing.sm,
-    right: spacing.lg,
-    zIndex: 10,
-    backgroundColor: colors.approved,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
+  overlayRight: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.approved + '30',
+    borderRadius: 20,
   },
-  currentBadgeText: {
-    color: colors.white,
-    fontSize: 12,
-    fontWeight: '700',
+  overlayRightText: {
+    fontSize: 32,
+    fontWeight: '800',
+    color: colors.approved,
   },
-  buttonRow: {
-    flexDirection: 'row',
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.md,
-    gap: spacing.md,
+  overlayLeft: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.pending + '30',
+    borderRadius: 20,
   },
-  actionButton: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 14,
+  overlayLeftText: {
+    fontSize: 32,
+    fontWeight: '800',
+    color: colors.pending,
+  },
+  swipeHintBar: {
+    paddingVertical: spacing.md,
     alignItems: 'center',
   },
-  skipButton: {
-    backgroundColor: colors.border,
-  },
-  selectButton: {
-    backgroundColor: colors.approved,
-  },
-  disabledButton: {
-    opacity: 0.4,
-  },
-  skipText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.textLight,
-  },
-  selectText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.white,
-  },
-  disabledText: {
-    color: colors.textLight,
-  },
-  endHint: {
-    textAlign: 'center',
-    color: colors.textLight,
+  hintText: {
     fontSize: 13,
+    color: colors.textLight,
     fontStyle: 'italic',
-    paddingBottom: spacing.sm,
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: spacing.xl,
+  },
+  emptyEmoji: {
+    fontSize: 64,
+    marginBottom: spacing.md,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.text,
+    textAlign: 'center',
+    marginBottom: spacing.lg,
+  },
+  moreButton: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: 14,
+    borderRadius: 14,
+    marginBottom: spacing.md,
+  },
+  moreButtonText: {
+    color: colors.white,
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  backLinkButton: {
+    padding: spacing.md,
+  },
+  backLinkText: {
+    color: colors.textLight,
+    fontSize: 15,
   },
   confirmationContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: colors.background,
+  },
+  confirmationContent: {
+    alignItems: 'center',
   },
   confirmationEmoji: {
     fontSize: 80,
@@ -230,5 +266,10 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '700',
     color: colors.approved,
+  },
+  confirmationName: {
+    fontSize: 18,
+    color: colors.text,
+    marginTop: spacing.sm,
   },
 });

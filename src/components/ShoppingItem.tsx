@@ -5,27 +5,21 @@ import { colors, spacing, borderRadius } from '@/theme';
 interface ShoppingItemProps {
   item: ShoppingItemType;
   onToggle: () => void;
-  onRohlik: () => void;
 }
 
-export default function ShoppingItem({ item, onToggle, onRohlik }: ShoppingItemProps) {
+export default function ShoppingItem({ item, onToggle }: ShoppingItemProps) {
   return (
-    <View style={styles.container}>
-      <Pressable onPress={onToggle} style={styles.checkArea}>
-        <View style={[styles.checkbox, item.checked && styles.checked]}>
-          {item.checked && <Text style={styles.checkmark}>✓</Text>}
-        </View>
-        <View style={styles.textArea}>
-          <Text style={[styles.name, item.checked && styles.strikethrough]}>
-            {item.name}
-          </Text>
-          <Text style={styles.amount}>{item.amount}</Text>
-        </View>
-      </Pressable>
-      <Pressable onPress={onRohlik} style={styles.rohlikButton}>
-        <Text style={styles.rohlikText}>🛒</Text>
-      </Pressable>
-    </View>
+    <Pressable onPress={onToggle} style={styles.container}>
+      <View style={[styles.checkbox, item.checked && styles.checked]}>
+        {item.checked && <Text style={styles.checkmark}>✓</Text>}
+      </View>
+      <View style={styles.textArea}>
+        <Text style={[styles.name, item.checked && styles.strikethrough]}>
+          {item.name}
+        </Text>
+        <Text style={styles.amount}>{item.amount}</Text>
+      </View>
+    </Pressable>
   );
 }
 
@@ -42,11 +36,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.04,
     shadowRadius: 4,
     elevation: 1,
-  },
-  checkArea: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
   },
   checkbox: {
     width: 24,
@@ -83,12 +72,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.textLight,
     marginTop: 2,
-  },
-  rohlikButton: {
-    padding: spacing.sm,
-    marginLeft: spacing.sm,
-  },
-  rohlikText: {
-    fontSize: 20,
   },
 });

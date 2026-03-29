@@ -1,15 +1,21 @@
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { Breakfast } from '@/types';
 import { colors, spacing, borderRadius } from '@/theme';
 
 interface BreakfastCardProps {
   breakfast: Breakfast;
-  showIngredients?: boolean;
+  isCurrentSelection?: boolean;
 }
 
-export default function BreakfastCard({ breakfast, showIngredients }: BreakfastCardProps) {
+export default function BreakfastCard({ breakfast, isCurrentSelection }: BreakfastCardProps) {
   return (
     <View style={styles.card}>
+      {isCurrentSelection && (
+        <View style={styles.currentBadge}>
+          <Text style={styles.currentBadgeText}>Aktuální výběr</Text>
+        </View>
+      )}
+
       <Text style={styles.emoji}>{breakfast.emoji}</Text>
       <Text style={styles.name}>{breakfast.name}</Text>
       <Text style={styles.description}>{breakfast.description}</Text>
@@ -44,20 +50,20 @@ export default function BreakfastCard({ breakfast, showIngredients }: BreakfastC
         ))}
       </View>
 
-      {showIngredients && (
-        <ScrollView style={styles.ingredientsList}>
-          <Text style={styles.ingredientsTitle}>Ingredience:</Text>
-          {breakfast.ingredients.map((ing, i) => (
-            <Text key={i} style={styles.ingredientItem}>
-              • {ing.name} — {ing.amount}
-            </Text>
-          ))}
-        </ScrollView>
-      )}
-
-      <View style={styles.swipeHints}>
-        <Text style={styles.hintLeft}>← Další</Text>
-        <Text style={styles.hintRight}>Chci! →</Text>
+      <View style={styles.ingredientsList}>
+        <Text style={styles.ingredientsTitle}>
+          Ingredience ({breakfast.ingredients.length}):
+        </Text>
+        {breakfast.ingredients.slice(0, 6).map((ing, i) => (
+          <Text key={i} style={styles.ingredientItem}>
+            • {ing.name} — {ing.amount}
+          </Text>
+        ))}
+        {breakfast.ingredients.length > 6 && (
+          <Text style={styles.ingredientMore}>
+            +{breakfast.ingredients.length - 6} dalších...
+          </Text>
+        )}
       </View>
     </View>
   );
@@ -77,6 +83,20 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     justifyContent: 'center',
+  },
+  currentBadge: {
+    position: 'absolute',
+    top: spacing.md,
+    right: spacing.md,
+    backgroundColor: colors.approved,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  currentBadgeText: {
+    color: colors.white,
+    fontSize: 12,
+    fontWeight: '700',
   },
   emoji: {
     fontSize: 72,
@@ -135,7 +155,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   ingredientsList: {
-    maxHeight: 160,
     width: '100%',
     paddingHorizontal: spacing.md,
   },
@@ -150,21 +169,10 @@ const styles = StyleSheet.create({
     color: colors.textLight,
     lineHeight: 22,
   },
-  swipeHints: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
-    paddingHorizontal: spacing.xl,
-    marginTop: spacing.lg,
-  },
-  hintLeft: {
-    fontSize: 14,
+  ingredientMore: {
+    fontSize: 13,
     color: colors.textLight,
     fontStyle: 'italic',
-  },
-  hintRight: {
-    fontSize: 14,
-    color: colors.approved,
-    fontWeight: '600',
+    marginTop: 2,
   },
 });

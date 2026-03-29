@@ -20,10 +20,9 @@ export function useShoppingList(plan: WeekPlan | null) {
       if (!breakfast) continue;
 
       for (const ing of breakfast.ingredients) {
-        const key = ing.rohlikQuery || ing.name;
+        const key = ing.name;
         const existing = aggregated.get(key);
         if (existing) {
-          // Combine amounts as text
           existing.amount = `${existing.amount}, ${ing.amount}`;
           existing.forBreakfast = `${existing.forBreakfast}, ${breakfast.name}`;
         } else {
@@ -39,16 +38,13 @@ export function useShoppingList(plan: WeekPlan | null) {
     return Array.from(aggregated.values());
   }, [plan, checkedItems]);
 
-  const toggleItem = useCallback(
-    (key: string) => {
-      setCheckedItems((prev) => {
-        const updated = { ...prev, [key]: !prev[key] };
-        saveCheckedItems(updated);
-        return updated;
-      });
-    },
-    [],
-  );
+  const toggleItem = useCallback((key: string) => {
+    setCheckedItems((prev) => {
+      const updated = { ...prev, [key]: !prev[key] };
+      saveCheckedItems(updated);
+      return updated;
+    });
+  }, []);
 
   const hasSelections = plan ? plan.days.some((d) => d.selectedId !== null) : false;
 

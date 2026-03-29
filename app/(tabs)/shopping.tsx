@@ -1,10 +1,9 @@
-import { View, Text, ScrollView, StyleSheet, Pressable } from 'react-native';
+import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useWeekPlan } from '@/hooks/useWeekPlan';
 import { useShoppingList } from '@/hooks/useShoppingList';
 import ShoppingItemComponent from '@/components/ShoppingItem';
-import { openRohlikSearch } from '@/lib/rohlik';
-import { colors, spacing, borderRadius } from '@/theme';
+import { colors, spacing } from '@/theme';
 
 export default function ShoppingScreen() {
   const { plan } = useWeekPlan();
@@ -24,14 +23,6 @@ export default function ShoppingScreen() {
 
   const uncheckedCount = items.filter((i) => !i.checked).length;
 
-  const handleOpenAllRohlik = async () => {
-    const unchecked = items.filter((i) => !i.checked);
-    if (unchecked.length > 0) {
-      const first = unchecked[0];
-      openRohlikSearch(first);
-    }
-  };
-
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -41,19 +32,18 @@ export default function ShoppingScreen() {
 
         {items.map((item) => (
           <ShoppingItemComponent
-            key={item.rohlikQuery || item.name}
+            key={item.name}
             item={item}
-            onToggle={() => toggleItem(item.rohlikQuery || item.name)}
-            onRohlik={() => openRohlikSearch(item)}
+            onToggle={() => toggleItem(item.name)}
           />
         ))}
-      </ScrollView>
 
-      <View style={styles.footer}>
-        <Pressable onPress={handleOpenAllRohlik} style={styles.rohlikBulkButton}>
-          <Text style={styles.rohlikBulkText}>🛒 Otevřít na Rohlíku</Text>
-        </Pressable>
-      </View>
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>
+            Pro {items.length} ingrediencí z vybraných snídaní
+          </Text>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -87,7 +77,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: spacing.md,
-    paddingBottom: 100,
+    paddingBottom: spacing.xl,
   },
   summary: {
     fontSize: 15,
@@ -95,25 +85,12 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   footer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: spacing.md,
-    paddingBottom: spacing.xl,
-    backgroundColor: colors.background,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  rohlikBulkButton: {
-    backgroundColor: colors.primary,
-    paddingVertical: 16,
-    borderRadius: borderRadius.button,
+    marginTop: spacing.md,
     alignItems: 'center',
   },
-  rohlikBulkText: {
-    color: colors.white,
-    fontSize: 17,
-    fontWeight: '700',
+  footerText: {
+    fontSize: 13,
+    color: colors.textLight,
+    fontStyle: 'italic',
   },
 });
