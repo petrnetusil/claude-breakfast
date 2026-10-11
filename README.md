@@ -12,6 +12,9 @@ npm test           # testy plánovače a nákupního seznamu
 npm run build      # statický web do dist/ (jde nahrát na jakýkoli hosting)
 ```
 
+Po každém pushi do výchozí větve se aplikace sama nasadí na GitHub Pages:
+https://petrnetusil.github.io/claude-breakfast/ (workflow `.github/workflows/pages.yml`).
+
 ## Co funguje
 
 - Úvodní obrazovka a nastavení počtu lidí (snídaně, svačina, oběd, večeře)
