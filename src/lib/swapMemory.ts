@@ -2,7 +2,7 @@ import type { SwapFilter } from './rohlik';
 
 /*
  * What the swap screen looked like, so that opening a candidate recipe and coming back keeps the
- * list, filter, search and scroll position. In memory only: gone when the page is closed.
+ * list, filter and search (the scroll position is kept by lib/scroll). In memory only.
  */
 
 export type IdeaFilter = SwapFilter | 'fav';
@@ -13,7 +13,6 @@ export interface SwapView {
   own: string;
   /** How many ideas were shown. */
   count: number;
-  scrollY: number;
 }
 
 const views = new Map<string, SwapView>();

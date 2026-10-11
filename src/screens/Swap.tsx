@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon, LoadError, RecipeImage, TimeMeta, TopBar } from '../components/ui';
 import { DAY_NAMES, longDate } from '../lib/dates';
 import { cleanText } from '../lib/link';
@@ -89,14 +89,13 @@ export function Swap({ dayIdx, mealIdx }: { dayIdx: number; mealIdx: number }) {
   const slot = meal.slot;
   const current = resolveMeal(week, dayIdx, meal);
 
-  // Coming back from a recipe: the same list, filter, search and scroll position as before.
+  // Coming back from a recipe: the same list, filter and search as before (lib/scroll restores the position).
   const key = swapKey(dayIdx, mealIdx);
   const [saved] = useState(() => getSwapView(key));
   const [filter, setFilter] = useState<IdeaFilter>(saved?.filter ?? 'all');
   const [query, setQuery] = useState(saved?.query ?? '');
   const [own, setOwn] = useState(saved?.own ?? '');
   const [count, setCount] = useState(saved?.count ?? PAGE);
-  const restoreY = useRef(saved?.scrollY ?? 0);
   const sentinel = useRef<HTMLDivElement>(null);
 
   const found = useIdeaIds(slot, filter, query.trim(), state.favorites);
@@ -126,32 +125,14 @@ export function Swap({ dayIdx, mealIdx }: { dayIdx: number; mealIdx: number }) {
 
   // Keep the view for the way back from a recipe. Forget it when leaving for anything else.
   useEffect(() => {
-    saveSwapView(key, { filter, query, own, count, scrollY: restoreY.current || window.scrollY });
+    saveSwapView(key, { filter, query, own, count });
   }, [key, filter, query, own, count]);
-  useEffect(() => {
-    const onScroll = () => {
-      const v = getSwapView(key);
-      if (v && !restoreY.current) v.scrollY = window.scrollY;
-    };
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => {
-      window.removeEventListener('scroll', onScroll);
+  useEffect(
+    () => () => {
       if (!window.location.hash.startsWith('#/recipe/')) forgetSwapView(key);
-    };
-  }, [key]);
-
-  // Fresh visit: start at the top. Coming back: scroll to where she was once the list is there again.
-  useLayoutEffect(() => {
-    if (!saved) window.scrollTo(0, 0);
-  }, []);
-  useLayoutEffect(() => {
-    if (!restoreY.current) return;
-    const ready = ideas.length > 0 && ideas.length >= Math.min(count, ordered.length);
-    if (ready) {
-      window.scrollTo(0, restoreY.current);
-      restoreY.current = 0;
-    }
-  });
+    },
+    [key],
+  );
 
   // Load more when the end of the list comes near the screen: no button. Only after the cards asked
   // for last time have arrived, otherwise the end stays in view and the list runs away.

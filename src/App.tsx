@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 import { parseWeekLink } from './lib/link';
 import { useRoute } from './lib/router';
+import { onRouteChange } from './lib/scroll';
 import { actions, useStore } from './lib/store';
 import { Favorites } from './screens/Favorites';
 import { Planner } from './screens/Planner';
@@ -70,10 +71,9 @@ export function App() {
     return () => window.clearTimeout(t);
   }, []);
 
-  // Each screen starts at the top. The swap screen sets its own position, so coming back from a
-  // recipe returns to the same place in the list.
-  useEffect(() => {
-    if (!route.startsWith('swap/')) window.scrollTo(0, 0);
+  // A new screen starts at the top; going back returns to where it was left.
+  useLayoutEffect(() => {
+    onRouteChange();
   }, [route]);
 
   return (

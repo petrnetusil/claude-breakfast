@@ -17,8 +17,10 @@ No Rohlík data may be stored in this repo or cached on the device (owner's rule
 - `src/lib/rohlik.ts` – live Rohlík endpoints (cards, detail, search), parsing of amounts, portions,
   times. In-memory only while the page is open.
 - `src/lib/useRohlik.ts` – hooks for cards and details. `src/lib/planner.ts` – meal resolution.
-- `src/lib/swapMemory.ts` – in-memory state of the swap screen (list, filter, search, scroll), so
-  opening a candidate recipe and going back returns to the same place. Swap loads more on scroll.
+- `src/lib/swapMemory.ts` – in-memory state of the swap screen (list, filter, search), so opening a
+  candidate recipe and going back returns to the same list. Swap loads more on scroll.
+- `src/lib/scroll.ts` – scroll position per history entry: back/forward returns to where the screen
+  was left, a new screen starts at the top. Positions (numbers only) live in sessionStorage.
 - `src/lib/shopping.ts` – scaling, aggregation by Rohlík's ingredient name, categories, Czech amounts.
 - `src/lib/store.ts` – the only place that mutates state; localStorage key `jidelnicek-v2`
   (week, household portions, favourite ids).

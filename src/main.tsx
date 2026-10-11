@@ -1,10 +1,10 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
+import { initScrollMemory } from './lib/scroll';
 import './styles.css';
 
-// The app sets scroll positions itself (see Swap); the browser's own restoring would fight it.
-if ('scrollRestoration' in window.history) window.history.scrollRestoration = 'manual';
+initScrollMemory();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
