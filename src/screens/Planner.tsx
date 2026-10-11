@@ -1,67 +1,79 @@
-import { Heart, Icon, RecipeImage, Stepper, TimeMeta } from '../components/ui';
+import { Heart, Icon, LoadError, RecipeImage, Stepper, TimeMeta } from '../components/ui';
 import { DAY_NAMES, DAY_ON, DAY_SHORT, dayNumber, longDate, weekLabel } from '../lib/dates';
-import { isWeekend, resolveMeal } from '../lib/planner';
+import { isWeekend, resolveMeal, weekRecipeIds } from '../lib/planner';
 import { href, navigate } from '../lib/router';
-import { SLOT, TAG_LABEL } from '../lib/slots';
+import { SLOT } from '../lib/slots';
 import { actions, useStore } from '../lib/store';
-import type { Meal, WeekPlan } from '../lib/types';
+import { useCards } from '../lib/useRohlik';
+import type { Meal, RecipeCard, WeekPlan } from '../lib/types';
 
-function MealCard({ week, dayIdx, mealIdx, meal, order }: { week: WeekPlan; dayIdx: number; mealIdx: number; meal: Meal; order: number }) {
+interface MealProps {
+  week: WeekPlan;
+  dayIdx: number;
+  mealIdx: number;
+  meal: Meal;
+  order: number;
+  cards: Map<number, RecipeCard>;
+  loading: boolean;
+}
+
+function MealCard({ week, dayIdx, mealIdx, meal, order, cards, loading }: MealProps) {
   const slot = SLOT[meal.slot];
-  const recipe = resolveMeal(week, dayIdx, meal);
+  const ref = resolveMeal(week, dayIdx, meal);
   const locked = week.status === 'approved';
   const swapHref = href(`swap/${dayIdx}/${mealIdx}`);
 
-  if (meal.off) {
+  if (meal.off || !ref) {
+    const why = meal.off ? 'nevaříme' : meal.leftover ? 'není z čeho, večeře den předtím chybí' : 'zatím nevybráno';
     return (
       <div className="meal off">
         <div>
-          <strong>{slot.label}</strong> · nevaříme
+          <strong>{slot.label}</strong> · {why}
         </div>
-        {!locked && (
-          <button type="button" className="btn soft" onClick={() => actions.setMealOff(dayIdx, mealIdx, false)}>
-            Vrátit
-          </button>
-        )}
+        {!locked &&
+          (meal.off ? (
+            <button type="button" className="btn soft" onClick={() => actions.setMealOff(dayIdx, mealIdx, false)}>
+              Vrátit
+            </button>
+          ) : (
+            <a className="btn primary" href={swapHref}>
+              Vybrat
+            </a>
+          ))}
       </div>
     );
   }
 
-  if (!recipe) {
-    return (
-      <div className="meal off">
-        <div>
-          <strong>{slot.label}</strong> · {meal.leftover ? 'není z čeho, večeře den předtím chybí' : 'zatím nevybráno'}
-        </div>
-        {!locked && (
-          <a className="btn primary" href={swapHref}>
-            Vybrat
-          </a>
-        )}
-      </div>
-    );
-  }
+  const card = ref.kind === 'recipe' ? cards.get(ref.id) : undefined;
+  const title = ref.kind === 'text' ? ref.text : card?.title ?? (loading ? 'Načítám z Rohlíku…' : 'Recept se nenašel');
+  const recipeHref = ref.kind === 'recipe' ? href(`recipe/${ref.id}/${dayIdx}/${mealIdx}`) : undefined;
+  const chip = meal.leftover ? 'Ze včerejší večeře' : ref.kind === 'text' ? 'Bez receptu' : null;
 
-  const recipeHref = href(`recipe/${recipe.id}/${dayIdx}/${mealIdx}`);
   return (
     // The key changes with the recipe, so a swapped meal rolls in again.
-    <article className="meal roll" key={recipe.id} style={{ animationDelay: `${order * 50}ms` }}>
+    <article className="meal roll" style={{ animationDelay: `${order * 50}ms` }}>
       <div className="meal-top">
-        <a href={recipeHref} aria-label={`Otevřít recept: ${recipe.title}`}>
-          <RecipeImage recipe={recipe} slot={meal.slot} className="thumb" />
-        </a>
+        {recipeHref ? (
+          <a href={recipeHref} aria-label={`Otevřít recept: ${title}`}>
+            <RecipeImage recipe={card} slot={meal.slot} className={`thumb ${!card && loading ? 'pending' : ''}`} />
+          </a>
+        ) : (
+          <RecipeImage recipe={undefined} slot={meal.slot} className="thumb" />
+        )}
         <div className="meal-text">
           <div className="slot-label" style={{ color: slot.ink }}>
             {slot.label}
           </div>
-          <a className="meal-title" href={recipeHref}>
-            {recipe.title}
-          </a>
-          <TimeMeta minutes={meal.leftover ? null : recipe.time}>
-            {meal.leftover ? <span className="chip">Ze včerejší večeře</span> : recipe.tag && <span className="chip">{TAG_LABEL[recipe.tag]}</span>}
-          </TimeMeta>
+          {recipeHref ? (
+            <a className={`meal-title ${card ? '' : 'muted'}`} href={recipeHref}>
+              {title}
+            </a>
+          ) : (
+            <span className="meal-title">{title}</span>
+          )}
+          <TimeMeta minutes={meal.leftover || ref.kind === 'text' ? null : card?.time ?? null}>{chip && <span className="chip">{chip}</span>}</TimeMeta>
         </div>
-        <Heart recipeId={recipe.id} className="corner" />
+        {ref.kind === 'recipe' && <Heart recipeId={ref.id} className="corner" />}
       </div>
       {!locked && (
         <div className="meal-actions">
@@ -83,9 +95,13 @@ export function Planner({ dayIdx }: { dayIdx: number }) {
   const week = useStore().week!;
   const day = week.days[dayIdx];
   const locked = week.status === 'approved';
+  const { data: cards, loading, error, retry } = useCards(weekRecipeIds(week));
 
   const cooking = day.off ? [] : day.meals.filter((m) => !m.off && resolveMeal(week, dayIdx, m));
-  const minutes = cooking.reduce((sum, m) => sum + (m.leftover ? 0 : resolveMeal(week, dayIdx, m)!.time), 0);
+  const minutes = cooking.reduce((sum, m) => {
+    const ref = m.leftover ? undefined : resolveMeal(week, dayIdx, m);
+    return sum + (ref?.kind === 'recipe' ? cards.get(ref.id)?.time ?? 0 : 0);
+  }, 0);
 
   return (
     <div className="screen with-bottom">
@@ -126,7 +142,7 @@ export function Planner({ dayIdx }: { dayIdx: number }) {
           <h2>
             {DAY_NAMES[dayIdx]} {longDate(day.date)}
           </h2>
-          <p className="muted">{day.off ? 'Volný den' : `Jídel: ${cooking.length} · vaření celkem ${minutes} min`}</p>
+          <p className="muted">{day.off ? 'Volný den' : `Jídel: ${cooking.length}${minutes ? ` · vaření celkem ${minutes} min` : ''}`}</p>
         </div>
         {isWeekend(dayIdx) && !locked && (
           <button type="button" className="btn outline" onClick={() => actions.toggleDay(dayIdx)}>
@@ -135,15 +151,31 @@ export function Planner({ dayIdx }: { dayIdx: number }) {
         )}
       </div>
 
+      {error && <LoadError message={error} onRetry={retry} />}
+
       {day.off ? (
         <div className="empty">
           <strong>{DAY_ON[dayIdx].replace(/^./, (c) => c.toUpperCase())} nevaříme</strong>
           <span>Do nákupu se z tohoto dne nic nepřidá.</span>
         </div>
+      ) : day.meals.length === 0 ? (
+        <div className="empty">
+          <strong>Na tento den není nic naplánováno</strong>
+          <span>Napište Claudovi, co si dát, a otevřete nový odkaz.</span>
+        </div>
       ) : (
         <div className="cards">
           {day.meals.map((meal, mealIdx) => (
-            <MealCard key={`${meal.slot}-${meal.recipeId}-${meal.leftover}`} week={week} dayIdx={dayIdx} mealIdx={mealIdx} meal={meal} order={mealIdx} />
+            <MealCard
+              key={`${meal.slot}-${meal.recipeId}-${meal.text}-${meal.leftover}`}
+              week={week}
+              dayIdx={dayIdx}
+              mealIdx={mealIdx}
+              meal={meal}
+              order={mealIdx}
+              cards={cards}
+              loading={loading}
+            />
           ))}
         </div>
       )}

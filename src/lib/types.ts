@@ -1,35 +1,44 @@
 export type Slot = 'sn' | 'sv' | 'po' | 'ob' | 've' | 'de';
-export type Tag = 'kure' | 'ryba' | 'hovezi' | 'veprove' | 'bezmasa' | '';
+
+/** Recipe summary from Rohlík, enough for a card. Loaded live, never stored. */
+export interface RecipeCard {
+  id: number;
+  title: string;
+  /** Path on rohlik.cz/chef/ */
+  slug: string;
+  image: string;
+  /** Minutes, null when Rohlík does not say. */
+  time: number | null;
+  author: string;
+}
 
 export interface Ingredient {
+  /** Rohlík's clean ingredient name ("Zakysaná smetana"), used to add up the shopping list. */
   name: string;
   amount: number | null;
   unit: string | null;
+  /** As written in the recipe ("4–6 lžic zakysané smetany"). */
+  text: string;
 }
 
-export interface Recipe {
-  id: number;
-  /** Path on rohlik.cz/chef/ */
-  slug: string;
-  title: string;
-  /** Which meal slots this recipe is suggested for. */
-  slots: Slot[];
-  tag: Tag;
-  /** Minutes, as listed by Rohlík. */
-  time: number;
-  /** Portions the ingredient amounts are for. */
-  baseServings: number;
-  /** false = Rohlík does not state it and the number is our estimate. */
-  servingsStated: boolean;
-  image: string;
-  author: string;
+export interface RecipeDetail extends RecipeCard {
+  /**
+   * Portions the ingredient amounts are for. null when Rohlík gives the yield in pieces or as a
+   * whole ("20 kusů", "1 dort"): such a recipe is made once, whatever the number of eaters.
+   */
+  servings: number | null;
+  /** As written by Rohlík ("4 porce", "12 kusů"). */
+  servingsLabel: string;
   ingredients: Ingredient[];
   steps: string[];
 }
 
 export interface Meal {
   slot: Slot;
+  /** Rohlík recipe. */
   recipeId: number | null;
+  /** A simple meal without a recipe ("Křupinky s mlékem"). */
+  text: string | null;
   servings: number;
   /** "Nevaříme" – skipped for this day. */
   off: boolean;
@@ -63,8 +72,6 @@ export interface Household {
 export interface AppState {
   household: Household;
   week: WeekPlan | null;
-  archive: WeekPlan[];
+  /** Rohlík recipe ids. */
   favorites: number[];
-  /** How often and when each recipe was in an approved week. */
-  cooked: Record<number, { count: number; last: string }>;
 }

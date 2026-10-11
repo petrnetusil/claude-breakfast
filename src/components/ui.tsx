@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { SLOT } from '../lib/slots';
 import { actions, MAX_SERVINGS, useStore } from '../lib/store';
 import { goBack } from '../lib/router';
-import type { Recipe, Slot } from '../lib/types';
+import type { Slot } from '../lib/types';
 
 const stroke = { fill: 'none', stroke: 'currentColor', strokeLinecap: 'round', strokeLinejoin: 'round' } as const;
 
@@ -59,11 +59,11 @@ export function PlateArt({ slot }: { slot: Slot }) {
   );
 }
 
-export function RecipeImage({ recipe, slot, className = '' }: { recipe: Recipe | undefined; slot: Slot; className?: string }) {
+export function RecipeImage({ recipe, slot, className = '' }: { recipe: { image: string } | undefined; slot: Slot; className?: string }) {
   // Keyed by URL, so a swapped recipe starts loading again instead of inheriting the old state.
   const [loaded, setLoaded] = useState<string | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
-  const src = recipe && failed !== recipe.image ? recipe.image : null;
+  const src = recipe?.image && failed !== recipe.image ? recipe.image : null;
   const ready = src !== null && loaded === src;
   return (
     <div className={`photo ${src && !ready ? 'is-loading' : ''} ${className}`} style={{ background: SLOT[slot].tint }}>
@@ -131,9 +131,35 @@ export function TopBar({ title, sub, back, right }: { title: string; sub?: strin
 export function TimeMeta({ minutes, children }: { minutes: number | null; children?: ReactNode }) {
   return (
     <div className="meta">
-      <Icon.clock />
-      <span>{minutes == null ? 'jen ohřát' : `${minutes} min`}</span>
+      {minutes != null && (
+        <>
+          <Icon.clock />
+          <span>{minutes} min</span>
+        </>
+      )}
       {children}
     </div>
   );
+}
+
+/** Shown when Rohlík cannot be reached. */
+export function LoadError({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <div className="notice error" role="alert">
+      <span>{message}</span>
+      <button type="button" className="btn soft small" onClick={onRetry}>
+        Zkusit znovu
+      </button>
+    </div>
+  );
+}
+
+/** Copies text; returns false when the browser does not allow it. */
+export async function copyText(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    return false;
+  }
 }

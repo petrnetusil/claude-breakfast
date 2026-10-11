@@ -1,40 +1,42 @@
 # Jídelníček – project notes for Claude Code
 
 Family weekly meal planner (Czech UI). One household, used by the owner's wife on phone and iPad.
-Vite + React 18 + TypeScript, no UI library, no backend yet. State lives in localStorage.
+Vite + React 18 + TypeScript, no UI library, no backend. Hosted on GitHub Pages from `master`.
+
+How it works: the wife plans in a Claude Project ("Jídelníček") with the Rohlík connector. Claude
+searches Rohlík Chef recipes and replies with a link to this app; the link carries the week
+(recipe ids, simple meals, portions). The app loads everything else live from rohlik.cz.
+No Rohlík data may be stored in this repo or cached on the device (owner's rule).
 
 ## Commands
 - `npm run dev` · `npm test` (vitest) · `npm run typecheck` · `npm run build`
 
 ## Layout
-- `src/data/recipes.ts` – 40 seed recipes from Rohlík Chef. Ingredient names are normalised so
-  the shopping list can sum them. `servingsStated: false` means the portion count is an estimate.
-- `src/lib/planner.ts` – week generation (seeded, deterministic), swap candidates, search, stats.
-- `src/lib/shopping.ts` – scaling, aggregation, categories, Czech amount formatting.
-- `src/lib/store.ts` – the only place that mutates state; persists to localStorage key `jidelnicek-v1`.
+- `src/lib/link.ts` – the week link format (`?t=&lid=&po=…&ne=`), parse and write. The same format is
+  documented for Claude in `docs/claude-projekt.md`; change both together.
+- `src/lib/rohlik.ts` – live Rohlík endpoints (cards, detail, search), parsing of amounts, portions,
+  times. In-memory only while the page is open.
+- `src/lib/useRohlik.ts` – hooks for cards and details. `src/lib/planner.ts` – meal resolution.
+- `src/lib/shopping.ts` – scaling, aggregation by Rohlík's ingredient name, categories, Czech amounts.
+- `src/lib/store.ts` – the only place that mutates state; localStorage key `jidelnicek-v2`
+  (week, household portions, favourite ids).
 - `src/lib/router.ts` – hash router. Routes: `d/:day`, `swap/:day/:meal`, `recipe/:id[/:day/:meal]`,
   `week`, `shop`, `fav`, `start`.
 - `src/screens/*` – one file per screen. `src/components/ui.tsx` – shared pieces.
+- `docs/` – setup guide for the wife and the Claude Project instructions (Czech).
 
 ## Rules that matter
 - Meal slots: sn (snídaně), sv (svačina), po (polévka), ob (oběd), ve (večeře), de (dezert).
-  Weekdays have sn/sv/ob/ve, weekend days sn/po/ob/ve/de.
-- A weekday lunch can be `leftover: true`; it then resolves to the previous day's dinner
-  (`resolveMeal`) and its portions are added to that dinner in the shopping list.
-- Balance rules are asserted in `src/lib/planner.test.ts` across 40 seeds. Keep them green.
-- UI copy is Czech, informal plural ("vyměníte", "nevaříme"). English is a planned setting;
-  strings are still inline.
+- A weekday lunch can be `leftover: true`; it resolves to the previous day's dinner (`resolveMeal`)
+  and its portions are added to that dinner in the shopping list.
+- A meal is a Rohlík recipe (`recipeId`) or a simple meal without a recipe (`text`, e.g. "Křupinky").
+- Only recipes whose yield is in portions are scaled; "20 kusů" or "1 dort" is made once.
+- Tests use made-up recipes only. Never commit data copied from Rohlík.
+- UI copy is Czech, informal plural ("vyměníte", "nevaříme").
 - Touch targets are at least 44 px. Check layouts at 360 px width.
 
-## Next steps, in order
-1. Rohlík connection. Official MCP server: https://mcp.rohlik.cz/mcp (OAuth). It offers product
-   search, cart management and recipe search. An order is only completed by the customer in
-   Rohlík's own interface, so the app fills the cart and hands over. Tool names are not
-   documented publicly: connect it in Claude Code (`claude mcp add --transport http rohlik-mcp
-   https://mcp.rohlik.cz/mcp`, then `/mcp`) and list them before designing the server.
-   Open question: whether a custom app can register as an OAuth client.
-2. Small backend (needed for 1 and for phone/iPad sync): stores state per household, talks to
-   the Rohlík MCP server, maps shopping items to products.
-3. Replace seed recipes with live Rohlík recipes; use real portion counts.
-4. Shopping list: map each item to a Rohlík product and pack size, then "add to cart".
-5. English as a setting.
+## Next steps
+1. Phone/iPad sync (needs a small backend or a shared store).
+2. Cart from the app: Rohlík's OAuth only allows approved redirect URIs (github.io is refused), so
+   the cart goes through Claude for now. Ask Rohlík about registering the app, or add a backend.
+3. English as a setting.

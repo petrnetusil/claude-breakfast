@@ -1,17 +1,15 @@
 import { useSyncExternalStore } from 'react';
-import { nextMonday } from './dates';
-import { activeMeals, generateWeek } from './planner';
+import { DEFAULT_HOUSEHOLD } from './link';
 import type { AppState, Household, Meal, WeekPlan } from './types';
 
-const KEY = 'jidelnicek-v1';
+/*
+ * The only state kept on the device: the current week (recipe ids, portions, ticks),
+ * the household's portion defaults and favourite recipe ids. No Rohlík data is stored.
+ * v2: the week now comes from Claude via a link; v1 held built-in recipes.
+ */
+const KEY = 'jidelnicek-v2';
 
-const DEFAULT_STATE: AppState = {
-  household: { sn: 4, sv: 2, ob: 1, ve: 4 },
-  week: null,
-  archive: [],
-  favorites: [],
-  cooked: {},
-};
+const DEFAULT_STATE: AppState = { household: DEFAULT_HOUSEHOLD, week: null, favorites: [] };
 
 function load(): AppState {
   try {
@@ -62,14 +60,15 @@ function editMeal(dayIdx: number, mealIdx: number, fn: (m: Meal) => Meal): void 
   }));
 }
 
+const chosen = { leftover: false, off: false };
+
 export const actions = {
-  /** Generates a new draft for next week. An approved week moves to the archive. */
-  startWeek(household: Household, seed: number = Date.now()): void {
-    update((s) => {
-      const archive = s.week && s.week.status === 'approved' ? [s.week, ...s.archive].slice(0, 12) : s.archive;
-      const week = generateWeek(nextMonday(), household, seed, { favorites: s.favorites, cooked: s.cooked });
-      return { ...s, household, archive, week };
-    });
+  /** A week from Claude replaces the current one. */
+  importWeek(week: WeekPlan, household: Household): void {
+    update((s) => ({ ...s, household, week }));
+  },
+  clearWeek(): void {
+    update((s) => ({ ...s, week: null }));
   },
   toggleDay(dayIdx: number): void {
     editWeek((w) => ({ ...w, days: w.days.map((d, i) => (i === dayIdx ? { ...d, off: !d.off } : d)) }));
@@ -81,10 +80,13 @@ export const actions = {
     editMeal(dayIdx, mealIdx, (m) => ({ ...m, servings: clamp(servings) }));
   },
   setRecipe(dayIdx: number, mealIdx: number, recipeId: number): void {
-    editMeal(dayIdx, mealIdx, (m) => ({ ...m, recipeId, leftover: false, off: false }));
+    editMeal(dayIdx, mealIdx, (m) => ({ ...m, ...chosen, recipeId, text: null }));
+  },
+  setText(dayIdx: number, mealIdx: number, text: string): void {
+    editMeal(dayIdx, mealIdx, (m) => ({ ...m, ...chosen, recipeId: null, text }));
   },
   setLeftover(dayIdx: number, mealIdx: number): void {
-    editMeal(dayIdx, mealIdx, (m) => ({ ...m, recipeId: null, leftover: true, off: false }));
+    editMeal(dayIdx, mealIdx, (m) => ({ ...m, ...chosen, recipeId: null, text: null, leftover: true }));
   },
   toggleFavorite(recipeId: number): void {
     update((s) => ({
@@ -92,30 +94,14 @@ export const actions = {
       favorites: s.favorites.includes(recipeId) ? s.favorites.filter((id) => id !== recipeId) : [...s.favorites, recipeId],
     }));
   },
-  /** Locks the menu and remembers what was chosen, so later suggestions can learn from it. */
   approve(): void {
-    update((s) => {
-      if (!s.week) return s;
-      const cooked = { ...s.cooked };
-      const ids = new Set(activeMeals(s.week).map((x) => x.recipe.id));
-      for (const id of ids) {
-        const prev = cooked[id];
-        // Re-approving the same week must not count twice.
-        if (prev?.last === s.week.id) continue;
-        cooked[id] = { count: (prev?.count ?? 0) + 1, last: s.week.id };
-      }
-      return { ...s, cooked, week: { ...s.week, status: 'approved' } };
-    });
+    editWeek((w) => ({ ...w, status: 'approved' }));
   },
   reopen(): void {
     editWeek((w) => ({ ...w, status: 'draft' }));
   },
   tick(key: string, value: boolean): void {
     editWeek((w) => ({ ...w, shop: { ...w.shop, [key]: value } }));
-  },
-  /** For tests and "start over". */
-  reset(): void {
-    update(() => DEFAULT_STATE);
   },
 };
 

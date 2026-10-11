@@ -995,3 +995,90 @@ a {
   font-size: 15px;
   color: var(--green-tint);
 }
+
+/* ───── Live data: errors, loading, simple meals ───── */
+.notice.error {
+  background: #fbe6e4;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.loading-line {
+  padding: 12px 0;
+}
+/* A photo that is still on its way from Rohlík: same sweep as an image that is loading. */
+.photo.pending::after {
+  opacity: 1;
+  animation: photo-sweep 1.4s ease-in-out infinite;
+}
+.photo.pending .plate .rim {
+  stroke-dasharray: 22 8;
+  animation: rim-turn 2.4s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .photo.pending::after,
+  .photo.pending .plate .rim {
+    animation: none;
+  }
+}
+.meal-title.muted {
+  color: var(--muted);
+}
+
+.own {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.own label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.own-row {
+  display: flex;
+  gap: 8px;
+}
+.own-row input {
+  flex: 1;
+  min-width: 0;
+  height: 48px;
+  border: 1.5px solid var(--line-strong);
+  border-radius: 14px;
+  background: #fff;
+  padding: 0 14px;
+  font: inherit;
+  font-size: 16px;
+  color: var(--ink);
+}
+.own-row input:focus {
+  outline: 2px solid var(--green);
+  outline-offset: 1px;
+}
+.own-row .btn {
+  height: 48px;
+}
+
+.claude-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.howto {
+  list-style: none;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.howto li {
+  display: flex;
+  gap: 12px;
+}
+.howto p {
+  margin: 2px 0 0;
+}

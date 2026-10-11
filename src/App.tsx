@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
+import { parseWeekLink } from './lib/link';
 import { useRoute } from './lib/router';
-import { useStore } from './lib/store';
+import { actions, useStore } from './lib/store';
 import { Favorites } from './screens/Favorites';
 import { Planner } from './screens/Planner';
 import { RecipeView } from './screens/RecipeView';
@@ -14,10 +15,22 @@ function Splash() {
     <div className="splash" role="status" aria-label="Jídelníček se načítá">
       <img src="./icon.svg" alt="" width="96" height="96" />
       <strong>Jídelníček</strong>
-      <span>Týden jídla bez vymýšlení</span>
+      <span>Týden jídla s Claudem</span>
     </div>
   );
 }
+
+/**
+ * A link from Claude carries the week in the query string. Import it once, then drop the query
+ * from the address, so a reload or a home-screen start does not overwrite later edits.
+ */
+function importFromLink(): void {
+  const parsed = parseWeekLink(window.location.search);
+  if (!parsed) return;
+  actions.importWeek(parsed.week, parsed.household);
+  window.history.replaceState(null, '', `${window.location.pathname}#/`);
+}
+importFromLink();
 
 const int = (s: string | undefined, max: number): number | undefined => {
   const n = Number(s);
@@ -34,6 +47,7 @@ function Screen() {
   }
   if (name === 'fav') return <Favorites />;
   if (!week || name === 'start') return <Start />;
+
 
   if (name === 'swap') {
     const dayIdx = int(a, 6);

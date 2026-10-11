@@ -1,5 +1,5 @@
 import { activeMeals } from './planner';
-import type { WeekPlan } from './types';
+import type { RecipeDetail, WeekPlan } from './types';
 
 export type Category = 'zelenina' | 'maso' | 'mlecne' | 'pecivo' | 'spiz' | 'koreni';
 
@@ -14,12 +14,12 @@ export const CATEGORY_LABEL: Record<Category, string> = {
 export const CATEGORY_ORDER: Category[] = ['zelenina', 'maso', 'mlecne', 'pecivo', 'spiz', 'koreni'];
 
 const PANTRY =
-  /^(sůl|pepř|med)$|olej|cukr|mouka|skořice|paprika .*mletá|kari koření|oregano|majoránka|muškát|bobkový|nové koření|kmín|kardamom|hřebíček|koriandr mletý|kajenský|chilli vločky|vanilk|prášek do pečiva|soda|ocet|škrob|strouhanka|sójová|hořčice|kakao|sádlo|droždí/;
+  /(^|\s)(sůl|pepř|med|badyán)(?!\p{L})|olej|cukr|mouka|skořice|paprika .*mletá|kari koření|oregano|majoránka|muškát|bobkový|nové koření|kmín|kardamom|hřebíček|koriandr mletý|kajenský|chilli vločky|vanilk|prášek do pečiva|soda|ocet|škrob|strouhanka|sójová|hořčice|kakao|sádlo|droždí|kypřící prášek|kurkum|římský kmín|chilli koření/u;
 const SHELF =
   /vývar|kokosové mléko|konzerv|ovesný nápoj|rýžová smetana|džus|víno|nudle|těstovin|špagety|penne|makarony|fleky|tagliatelle|gnocchi|rýže|čočka|vločky|krupice|ořechy|semínka|čokoláda|rozinky|marmeláda|protlak|drcená rajčata|sušená rajčata|nakládané|omáčka|majonéza|guacamole|extrakt|aroma/;
-const BAKERY = /chléb|tortill|veka|pečivo/;
-const MEAT = /kuřecí|hověz|vepř|losos|tuňák|slanina|krkovice|roštěnec|kližka|bůček/;
-const DAIRY = /mléko|máslo|smetan|jogurt|tvaroh|sýr|cheddar|čedar|parmazán|gouda|feta|ricotta|lučina|žervé|kefír|vejce|ghí/;
+const BAKERY = /chléb|chleba|tortill|veka|pečivo|bageta|rohlík|houska|croissant|pita/;
+const MEAT = /kuřecí|kuře|krůt|hověz|vepř|telecí|jehněčí|mleté maso|losos|tuňák|treska|krevet|ryb|slanina|pancetta|šunka|klobás|párk|krkovice|roštěn|kližka|bůček|mortadella|prosciutto|chorizo/;
+const DAIRY = /mléko|máslo|smetan|jogurt|tvaroh|sýr|cheddar|čedar|parmazán|gouda|feta|ricotta|lučina|žervé|kefír|vejce|ghí|mozzarell|burrata|mascarpone|cottage|eidam|ementál|pecorino|halloumi/;
 
 export function classify(name: string): Category {
   if (PANTRY.test(name)) return 'koreni';
@@ -74,20 +74,35 @@ export function formatAmount(amount: number | null, unit: string | null): string
   return `${num(amount)} ${form}`;
 }
 
-/** Scales one ingredient amount from the recipe's portions to the wanted ones. */
-export function scale(amount: number | null, baseServings: number, servings: number): number | null {
-  return amount == null ? null : (amount * servings) / baseServings;
+/** Scales one ingredient amount from the recipe's portions to the wanted ones. A recipe without portions is made once. */
+export function scale(amount: number | null, baseServings: number | null, servings: number): number | null {
+  if (amount == null) return null;
+  return baseServings == null ? amount : (amount * servings) / baseServings;
 }
 
-/** Everything needed for the week, added up across recipes. */
-export function buildShopping(week: WeekPlan): ShopItem[] {
+export interface ShopList {
+  items: ShopItem[];
+  /** Simple meals without a recipe ("Křupinky s mlékem"): bought as they are. */
+  simple: { text: string; days: number }[];
+}
+
+/** Everything needed for the week, added up across recipes. Recipes not loaded yet are left out. */
+export function buildShopping(week: WeekPlan, details: Map<number, RecipeDetail>): ShopList {
   const map = new Map<string, ShopItem & { raw: number | null }>();
-  for (const { meal, recipe } of activeMeals(week)) {
+  const simple = new Map<string, number>();
+  for (const { meal, ref } of activeMeals(week)) {
+    if (ref.kind === 'text') {
+      simple.set(ref.text, (simple.get(ref.text) ?? 0) + 1);
+      continue;
+    }
+    const recipe = details.get(ref.id);
+    if (!recipe) continue;
     for (const ing of recipe.ingredients) {
-      const amount = scale(ing.amount, recipe.baseServings, meal.servings);
+      const amount = scale(ing.amount, recipe.servings, meal.servings);
       const unit = amount == null ? null : ing.unit;
-      const key = `${ing.name}|${unit ?? ''}|${amount == null ? 'x' : 'n'}`;
-      const category = classify(ing.name);
+      const name = ing.name.toLowerCase();
+      const key = `${name}|${unit ?? ''}|${amount == null ? 'x' : 'n'}`;
+      const category = classify(name);
       const item = map.get(key);
       if (item) {
         if (amount != null) item.raw = (item.raw ?? 0) + amount;
@@ -98,23 +113,25 @@ export function buildShopping(week: WeekPlan): ShopItem[] {
     }
   }
 
-  const items = [...map.values()];
-  const withAmount = new Set(items.filter((i) => i.raw != null).map((i) => i.name));
-  return items
+  const all = [...map.values()];
+  const withAmount = new Set(all.filter((i) => i.raw != null).map((i) => i.name.toLowerCase()));
+  const items = all
     // "podle chuti" is noise once the same thing is on the list with an amount.
-    .filter((i) => i.raw != null || !withAmount.has(i.name))
+    .filter((i) => i.raw != null || !withAmount.has(i.name.toLowerCase()))
     .map(({ raw, ...item }) => ({ ...item, amount: raw == null ? null : roundAmount(raw, item.unit) }))
     .sort(
       (a, b) =>
         CATEGORY_ORDER.indexOf(a.category) - CATEGORY_ORDER.indexOf(b.category) || a.name.localeCompare(b.name, 'cs'),
     );
+  return { items, simple: [...simple].map(([text, days]) => ({ text, days })) };
 }
 
 export const isTicked = (week: WeekPlan, item: ShopItem): boolean => week.shop[item.key] ?? !item.pantry;
 
-export function shoppingText(week: WeekPlan, items: ShopItem[]): string {
-  return items
+export function shoppingText(week: WeekPlan, list: ShopList): string {
+  const lines = list.items
     .filter((i) => isTicked(week, i))
-    .map((i) => (i.amount == null ? i.name : `${i.name} – ${formatAmount(i.amount, i.unit)}`))
-    .join('\n');
+    .map((i) => (i.amount == null ? i.name : `${i.name} – ${formatAmount(i.amount, i.unit)}`));
+  for (const s of list.simple) lines.push(`${s.text} (na ${s.days} ${s.days === 1 ? 'den' : s.days < 5 ? 'dny' : 'dní'})`);
+  return lines.map((l) => `- ${l}`).join('\n');
 }
