@@ -37,6 +37,10 @@ No Rohlík data may be stored in this repo or cached on the device (owner's rule
 - `skill/jidelnicek/` – Claude skill (upload as zip in claude.ai): `SKILL.md` plus
   `scripts/make_link.py`, which builds the week link. Keep `make_link.py`, `src/lib/link.ts` and
   `docs/claude-projekt.md` in the same link format.
+  The owner edits the skill in claude.ai; the installed version is the source of truth and is
+  synced into cloud sessions under `~/.claude/skills/synced/*/jidelnicek/`. Before changing the
+  skill, diff against that copy and merge into it, never overwrite it from the repo. The repo copy
+  has the family's purchase profile replaced by a placeholder: the repo is public, never commit it.
 
 ## Rules that matter
 - Meal slots: sn (snídaně), sv (svačina), po (polévka), ob (oběd), ve (večeře), de (dezert).

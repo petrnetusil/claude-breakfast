@@ -1,6 +1,6 @@
 ---
-name: jidelnicek
-description: Plans the family's weekly meals (jídelníček) from Rohlík Chef recipes through the Rohlík connector, shows the week in the chat, links to the Jídelníček app, and fills the Rohlík cart. Use when the user asks to plan meals or a week of food, to change a planned meal, for a shopping list for the plan, or to put the plan's shopping into the Rohlík cart ("naplánuj týden", "jídelníček", "co budeme vařit", "vyměň večeři", "nákup do košíku").
+name: "jidelnicek"
+description: "Plans the family's weekly meals (jídelníček) from Rohlík Chef recipes through the Rohlík connector, shows the week in the chat, links to the Jídelníček app, and fills the Rohlík cart. Use when the user asks to plan meals or a week of food, to change a planned meal, for a shopping list for the plan, or to put the plan's shopping into the Rohlík cart (\"naplánuj týden\", \"jídelníček\", \"co budeme vařit\", \"vyměň večeři\", \"nákup do košíku\")."
 ---
 
 # Jídelníček
@@ -22,6 +22,59 @@ Edit these numbers for the family. They are the default portions for every plan.
 
 `household` for the link script: `[4, 2, 1, 4]`.
 
+## Taste and direction
+
+These come from the user. They rank above the purchase profile below.
+
+- Lean healthy. Salmon, other fish, chicken, vegetables and legumes carry most of the week.
+  Do not be strict about it: a creamy sauce, a schnitzel or a sweet main dish now and then is fine.
+- Pork and beef are fine sometimes, on a weekday or at the weekend.
+- Variety and surprise are welcome, for breakfasts and for every other meal. A new recipe, a new
+  cuisine or an ingredient the family has not bought yet is a good thing in small doses.
+- The family eats everything.
+
+## What this family buys
+
+<!--
+  The real purchase profile (products, brands, order values, children's snacks) is private.
+  It lives only in the installed skill in the owner's claude.ai account, not in this public
+  repository. To build it, follow "Keeping the profile current" below and paste the result here
+  before zipping the skill for upload.
+-->
+
+Snapshot of <date>, from the last 15 delivered Rohlík orders and the favourite products.
+Numbers in brackets are "in how many of the 15 orders".
+
+**Meat and fish** – …
+**Dairy** – …
+**Vegetables and fruit** – …
+**Pantry** – …
+**Baking at home** – …
+**Children's snacks they buy ready** – …
+**Rarely or never bought** – …
+
+### How to use the profile
+
+1. Base and surprise. About two thirds of the week is built on the profile. The rest is free:
+   plan 2–3 main meals and 1–2 breakfasts in the week that are new for the family (a new recipe,
+   cuisine or ingredient). Do not repeat last week's surprises when you know them.
+2. Breakfasts: weekday breakfasts stay quick. Most come from oats, yoghurt, tvaroh, kefír, eggs,
+   bananas, peanut butter and home baking. The surprise breakfasts fit best at the weekend.
+3. Snacks: mix 2–3 recipes with simple `text` snacks from the products above
+   ("Jablko a sýr", "Banán a müsli tyčinka").
+4. Use a pack up. When one recipe opens a pack (baby špenát, smetana, mozzarella, tortilly),
+   plan a second meal in the same week that finishes it. This counts double for a new ingredient:
+   do not make them buy a bag of something for one spoon.
+5. Do not write the profile out in the reply.
+6. Never read a diet or a health need out of the orders. Only the user sets those.
+
+### Keeping the profile current
+
+Refresh it when the user asks, or when the snapshot date is more than 8 weeks old. Call
+`get_all_user_favorites` and `fetch_orders` (`limit: 15`, `order_type: delivered`). The orders
+result is large: count products with a script, do not read it line by line. Then propose an
+update of this section with the new date. Do not use `get_typical_order` with `add_to_cart`.
+
 ## The week
 
 - Plan next week (from the coming Monday) unless the user says otherwise. Use today's date.
@@ -33,31 +86,45 @@ Edit these numbers for the family. They are the default portions for every plan.
 ## Rules
 
 1. Find recipes with `search_recipes_by_vector_similarity` (Czech queries, `limit` 15). Run
-   several searches in parallel: breakfasts, snacks, fish, meatless, chicken, beef or pork,
-   soups, desserts, and anything the user asked for.
-2. For every dinner and weekend lunch, check time and portions with `get_recipe_detail`
-   (`include_product_mapping: false`).
+   several searches in parallel: breakfasts, snacks, fish, meatless, chicken, minced meat, beef or
+   pork, soups, desserts, and anything the user asked for. Put ingredients from the profile into
+   some queries ("večeře z kuřecích prsou a cukety", "snídaně z tvarohu"). Add 1–2 open queries
+   for the surprises (a cuisine, a season, "netradiční snídaně").
+2. For every dinner and weekend lunch, read `get_recipe_detail`
+   (`include_product_mapping: false`) for portions and for the real time.
 3. Use only recipe numbers that a Rohlík tool returned in this conversation. Never invent one.
-4. Weekday dinners take at most 60 minutes. Weekend lunches may take longer.
-5. Main meals (dinners and weekend lunches) in a week: fish at least 1×, meatless at least 2×,
-   chicken at most 3×, beef at most 2×. Two dinners in a row never with the same meat.
+4. Time. The Rohlík label ("Rychlovka", "Do hodinky", "Majstrštyk") is not reliable: a recipe
+   marked "Do hodinky" can hold two hours of stewing. Add up the times in the steps and use that.
+   - Weekday dinners: at most 60 minutes.
+   - Weekend: one long cook in the week is fine (up to about 3 hours, most of it unattended, such
+     as a roast, a stew or yeast dough). The other weekend lunch and both weekend dinners stay
+     at about 60 minutes. Leave the long cook out when the user says the weekend is busy.
+5. Main meals (9 in a week: dinners and weekend lunches). These are targets, not a diet:
+   - fish 1–2×, with salmon often;
+   - meatless at least 2×;
+   - chicken at most 3×;
+   - red meat (beef, pork, mince) 1–3×;
+   - heavy meals (fried, a lot of cream or smoked meat) at most 2×;
+   - two dinners in a row never with the same meat.
 6. No recipe twice in a week (leftover lunches do not count). Breakfasts and snacks may rotate
    2–3 kinds.
 7. Something that is not a recipe (křupinky, jogurt, rohlík s máslem, ovoce) is a simple meal
    with `text`. Do not look for a recipe for it.
-8. The user's wishes come before rules 4–6. When a wish breaks a rule, say so in one sentence.
+8. The user's wishes come before rules 4–6 and before the profile. When a wish breaks a rule, say
+   so in one sentence.
 
 ## Reply with a plan
 
 Show the week in the chat like this. Recipe titles without the part after "|". Each recipe
-links to `https://www.rohlik.cz/chef/<id>`. Time for dinners and weekend lunches.
+links to `https://www.rohlik.cz/chef/<id>`. Time for dinners and weekend lunches, as your
+estimate from the steps ("asi 35 min", "asi 2,5 h").
 
 ```
 **Pondělí 12. 10.**
 - Snídaně: [Ovesná kaše přes noc](https://www.rohlik.cz/chef/22106)
 - Svačina: Jablko a rohlík
 - Oběd: [Kuskusový salát do krabičky](https://www.rohlik.cz/chef/15768)
-- Večeře: [Thajské žluté kari s treskou](https://www.rohlik.cz/chef/25494) · 30 min
+- Večeře: [Thajské žluté kari s treskou](https://www.rohlik.cz/chef/25494) · asi 30 min
 
 **Úterý 13. 10.**
 - Snídaně: Křupinky s mlékem
@@ -69,9 +136,10 @@ links to `https://www.rohlik.cz/chef/<id>`. Time for dinners and weekend lunches
 After the week:
 
 1. One line about balance: `Hlavní jídla: 2× ryba, 2× bez masa, 2× kuře, 1× hovězí.`
-2. The app link, built with the script below: `**[Otevřít v aplikaci](link)**` and a short note
+2. One line that names the surprises: `Nové tento týden: …`
+3. The app link, built with the script below: `**[Otevřít v aplikaci](link)**` and a short note
    that the app shows photos and lets her swap meals by tapping.
-3. One short question: anything to change, or a shopping list?
+4. One short question: anything to change, or a shopping list?
 
 ## The app link
 
@@ -111,6 +179,9 @@ ingredient from the recipe's portions to the planned portions (a recipe in piece
 "1 dort", is made once). Add the same ingredient up across recipes. Group: ovoce a zelenina,
 maso a ryby, mléčné a vejce, pečivo, trvanlivé, koření a základ. Put simple meals (křupinky) on
 the list as products. Mark staples (sůl, pepř, olej, mouka, cukr, koření) as "nejspíš doma".
+Mark things the family has in almost every order (see the profile) as "kupujete pravidelně",
+so she can check the fridge before she orders more.
+Do not add bread or rolls unless a recipe needs them or the user asks.
 
 ## Cart
 
@@ -120,10 +191,10 @@ When the user wants the shopping in the Rohlík cart. The list usually comes fro
 
 1. A line with a product number (`č. 1298747`) and a count (`4×`) is the user's choice in the app:
    use exactly that product and quantity. Do not search for another one.
-2. For lines without a number, learn what the user usually buys: call `get_typical_order`
-   (read only: never set `add_to_cart` or `revert`) and `get_all_user_favorites`. When one of
-   those products fits the item, use it. Otherwise find one with `batch_search_products`
-   (at most 4 queries per call), preferring `favourite: true` and a pack that fits the amount.
+2. For lines without a number, find a product with `batch_search_products` (at most 4 queries
+   per call). Prefer, in this order: the exact product named in the profile, a product with
+   `favourite: true` or one from `get_typical_order` (read only: never set `add_to_cart` or
+   `revert`), the family's usual brands from the profile, then a pack that matches the amount.
 3. Leave staples out unless the user says they are missing at home.
 4. Show the products with price and the total. Mark which came from the app, which from the
    usual purchases, and which are new. Wait for the user's yes.
