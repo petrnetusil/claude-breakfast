@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { RECIPES } from '../data/recipes';
 import { activeMeals, candidates, generateWeek, resolveMeal, searchRecipes, suggest, weekStats } from './planner';
@@ -18,6 +19,11 @@ describe('seed recipes', () => {
       expect(r.steps.length, r.title).toBeGreaterThan(0);
       expect(r.image.startsWith('https://cdn.rohlik.cz/'), r.title).toBe(true);
     }
+  });
+
+  it('have a bundled photo in public/ (npm run fetch-images)', () => {
+    const missing = RECIPES.filter((r) => !existsSync(new URL(`../../public/${r.imageLocal}`, import.meta.url)));
+    expect(missing.map((r) => r.title)).toEqual([]);
   });
 });
 
