@@ -40,6 +40,7 @@ function r(
     baseServings: base,
     servingsStated: stated,
     image: IMG + img,
+    imageLocal: 'recipes/' + img,
     author,
     ingredients: ings.map(([name, amount, unit]) => ({ name, amount: amount ?? null, unit: unit ?? null })),
     steps,
