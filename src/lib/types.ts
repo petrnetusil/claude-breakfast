@@ -21,10 +21,7 @@ export interface Recipe {
   baseServings: number;
   /** false = Rohlík does not state it and the number is our estimate. */
   servingsStated: boolean;
-  /** Original photo on Rohlík's CDN. */
   image: string;
-  /** Same photo bundled with the app (public/recipes/), see scripts/fetch-images.mjs. */
-  imageLocal: string;
   author: string;
   ingredients: Ingredient[];
   steps: string[];

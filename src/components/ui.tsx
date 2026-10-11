@@ -60,14 +60,12 @@ export function PlateArt({ slot }: { slot: Slot }) {
 }
 
 export function RecipeImage({ recipe, slot, className = '' }: { recipe: Recipe | undefined; slot: Slot; className?: string }) {
-  // 0 = bundled copy, 1 = Rohlík CDN, 2 = both failed, show the plate only.
-  const [attempt, setAttempt] = useState(0);
-  const src = recipe && attempt < 2 ? [recipe.imageLocal, recipe.image][attempt] : null;
+  const [failed, setFailed] = useState(false);
   return (
     <div className={`photo ${className}`} style={{ background: SLOT[slot].tint }}>
       <PlateArt slot={slot} />
-      {src && (
-        <img key={src} src={src} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setAttempt((a) => a + 1)} />
+      {recipe && !failed && (
+        <img src={recipe.image} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setFailed(true)} />
       )}
     </div>
   );
