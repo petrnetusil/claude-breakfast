@@ -1,56 +1,41 @@
-# Welcome to your Expo app 👋
+# Jídelníček
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Týdenní plánovač jídla pro rodinu. Navrhne vyvážený týden z receptů Rohlík Chef, každé jídlo jde
+vyměnit, vypnout nebo přepočítat na jiný počet porcí. Po schválení vznikne nákupní seznam.
 
-## Get started
-
-1. Install dependencies
-
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## Spuštění
 
 ```bash
-npm run reset-project
+npm install
+npm run dev        # vývoj; adresu "Network" otevřete na telefonu ve stejné Wi-Fi
+npm test           # testy plánovače a nákupního seznamu
+npm run build      # statický web do dist/ (jde nahrát na jakýkoli hosting)
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## Co funguje
 
-### Other setup steps
+- Úvodní obrazovka a nastavení počtu lidí (snídaně, svačina, oběd, večeře)
+- Návrh týdne: rotace snídaní a svačin, obědy do práce (čerstvé nebo zbytek z večeře),
+  večeře do 60 minut ve všední dny, o víkendu polévka + hlavní jídlo + dezert
+- Vyváženost: aspoň 1× ryba, aspoň 2× bez masa, nejvýš 3× kuře a 2× hovězí, dvě večeře po sobě
+  nikdy se stejným masem
+- Výměna kteréhokoli jídla: tři návrhy, další tři, filtry, hledání podle názvu i suroviny
+- „Nevaříme“ pro jídlo i celý víkendový den
+- Detail receptu s přepočtem surovin a odkazem na Rohlík
+- Oblíbená jídla (dostávají přednost) a historie schválených týdnů
+- Schválení týdne a nákupní seznam sečtený přes recepty, základní suroviny odškrtnuté
+- Ukládání v prohlížeči (localStorage), po znovuotevření je vše na místě
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+## Co zatím ne
 
-## Learn more
+- **Košík na Rohlíku.** Seznam jde zkopírovat a u položky otevřít hledání na Rohlíku.
+- **Synchronizace mezi telefonem a iPadem.** Data jsou v každém zařízení zvlášť.
+- **Živé recepty.** 40 receptů je uložených v `src/data/recipes.ts` (staženo 6. 10. 2026).
+- **Angličtina.**
 
-To learn more about developing your project with Expo, look at the following resources:
+## Data z Rohlíku: co je ověřené
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Recepty pocházejí ze stránek rohlik.cz/chef. Názvy, časy, autoři, suroviny a adresy fotek jsou
+převzaté. Postupy jsou zkrácené vlastními slovy a mohou být neúplné. Počet porcí Rohlík na
+stránce většinou neuvádí, u 38 ze 40 receptů je to odhad (`servingsStated: false`).
+Adresy fotek nebyly ověřené načtením; když se fotka nenačte, zobrazí se kreslený talíř.

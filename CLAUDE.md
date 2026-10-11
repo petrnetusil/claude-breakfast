@@ -1,54 +1,40 @@
-# Snídaně — Czech Breakfast Planner
+# Jídelníček – project notes for Claude Code
 
-## Project overview
-Expo (React Native) mobile app for iPhone. Weekly Czech breakfast planner with
-Tinder-style swipe approval and Rohlik.cz shopping integration.
-All UI text and content is in Czech.
+Family weekly meal planner (Czech UI). One household, used by the owner's wife on phone and iPad.
+Vite + React 18 + TypeScript, no UI library, no backend yet. State lives in localStorage.
 
-## Tech stack
-- Expo SDK 55 with expo-router (file-based routing in `app/`)
-- TypeScript (strict mode)
-- rn-swiper-list for card swiping (depends on react-native-reanimated + gesture-handler)
-- AsyncStorage for local persistence
-- date-fns for date logic
-- Rohlik.cz integration via deep links (future: @tomaspavlin/rohlik-mcp)
+## Commands
+- `npm run dev` · `npm test` (vitest) · `npm run typecheck` · `npm run build`
 
-## Project structure
-- `app/`              — Routes (expo-router file-based)
-- `src/components/`   — Reusable UI components
-- `src/data/`         — Static breakfast data and holiday logic
-- `src/hooks/`        — React hooks (useWeekPlan, useShoppingList)
-- `src/lib/`          — Business logic (planGenerator, storage, rohlik)
-- `src/types/`        — TypeScript type definitions
-- `src/theme/`        — Colors, spacing, typography constants
+## Layout
+- `src/data/recipes.ts` – 40 seed recipes from Rohlík Chef. Ingredient names are normalised so
+  the shopping list can sum them. `servingsStated: false` means the portion count is an estimate.
+- `src/lib/planner.ts` – week generation (seeded, deterministic), swap candidates, search, stats.
+- `src/lib/shopping.ts` – scaling, aggregation, categories, Czech amount formatting.
+- `src/lib/store.ts` – the only place that mutates state; persists to localStorage key `jidelnicek-v1`.
+- `src/lib/router.ts` – hash router. Routes: `d/:day`, `swap/:day/:meal`, `recipe/:id[/:day/:meal]`,
+  `week`, `shop`, `fav`, `start`.
+- `src/screens/*` – one file per screen. `src/components/ui.tsx` – shared pieces.
 
-## Key commands
-- `npx expo start`          — Start dev server
-- `npx expo start --ios`    — Start with iOS simulator
-- `npx expo install <pkg>`  — Install Expo-compatible package version
-- `npm run lint`             — Run linter
+## Rules that matter
+- Meal slots: sn (snídaně), sv (svačina), po (polévka), ob (oběd), ve (večeře), de (dezert).
+  Weekdays have sn/sv/ob/ve, weekend days sn/po/ob/ve/de.
+- A weekday lunch can be `leftover: true`; it then resolves to the previous day's dinner
+  (`resolveMeal`) and its portions are added to that dinner in the shopping list.
+- Balance rules are asserted in `src/lib/planner.test.ts` across 40 seeds. Keep them green.
+- UI copy is Czech, informal plural ("vyměníte", "nevaříme"). English is a planned setting;
+  strings are still inline.
+- Touch targets are at least 44 px. Check layouts at 360 px width.
 
-## Conventions
-- All user-facing strings are in Czech, hardcoded (no i18n library)
-- Component files use PascalCase, other files use camelCase
-- Each component in its own file, default export
-- Hooks return objects, not arrays
-- Business logic in `src/lib/`, not in components
-- Keep components under 150 lines; extract sub-components if longer
-- Import from `src/` using `@/` alias (e.g. `import { colors } from '@/theme'`)
-
-## Data
-- Breakfast recipes: `src/data/breakfasts.ts` — typed array of Breakfast objects
-- Czech holidays: `src/data/holidays.ts` — fixed holidays + Easter computation
-- Adding a new breakfast: add to the array with all Ingredient fields + rohlikQuery
-
-## State management
-- AsyncStorage via `src/lib/storage.ts` wrapper
-- `useWeekPlan` hook manages the current week's plan
-- No Redux/Zustand — just hooks + AsyncStorage
-
-## Design
-- Warm & cozy palette: cream (#FFF8F0), orange (#FF9F43), soft shadows
-- Green (#2ED573) = approved, Orange (#FFA502) = pending
-- Rounded cards (16px radius), playful emoji-heavy
-- Mobile-only, portrait orientation
+## Next steps, in order
+1. Rohlík connection. Official MCP server: https://mcp.rohlik.cz/mcp (OAuth). It offers product
+   search, cart management and recipe search. An order is only completed by the customer in
+   Rohlík's own interface, so the app fills the cart and hands over. Tool names are not
+   documented publicly: connect it in Claude Code (`claude mcp add --transport http rohlik-mcp
+   https://mcp.rohlik.cz/mcp`, then `/mcp`) and list them before designing the server.
+   Open question: whether a custom app can register as an OAuth client.
+2. Small backend (needed for 1 and for phone/iPad sync): stores state per household, talks to
+   the Rohlík MCP server, maps shopping items to products.
+3. Replace seed recipes with live Rohlík recipes; use real portion counts.
+4. Shopping list: map each item to a Rohlík product and pack size, then "add to cart".
+5. English as a setting.

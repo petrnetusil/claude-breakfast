@@ -1,0 +1,10 @@
+{
+  "name": "Jídelníček",
+  "short_name": "Jídelníček",
+  "lang": "cs",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#F3F6F1",
+  "theme_color": "#1F6B4A",
+  "icons": [{ "src": "./icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}
