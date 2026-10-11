@@ -1,14 +1,15 @@
+import type { Entry } from './history';
+
 /*
- * Scroll position per history entry. Going back (or forward) to a screen returns to where it was
- * left; a new screen starts at the top. Each history entry gets a key in history.state; positions
- * are kept in memory and in sessionStorage, so they survive a visit to rohlik.cz and back.
+ * Scroll position per history entry (see lib/history). Going back (or forward) to a screen returns
+ * to where it was left; a new screen starts at the top. Positions are kept in memory and in
+ * sessionStorage, so they survive a visit to rohlik.cz and back.
  * Only numbers are stored here, no Rohlík data.
  */
 
 const STORE = 'jidelnicek-scroll';
 const positions = new Map<string, number>(readStored());
 let current: string | null = null;
-let counter = 0;
 let cancelRestore: (() => void) | null = null;
 
 function readStored(): [string, number][] {
@@ -26,14 +27,6 @@ function persist(): void {
   } catch {
     // Storage blocked: positions still work while the page is open.
   }
-}
-
-function entryKey(): { key: string; revisit: boolean } {
-  const state = window.history.state as { k?: string } | null;
-  if (state?.k) return { key: state.k, revisit: positions.has(state.k) };
-  const key = `${Date.now().toString(36)}-${counter++}`;
-  window.history.replaceState({ ...(state ?? {}), k: key }, '');
-  return { key, revisit: false };
 }
 
 /** Scrolls to `y` once the page is tall enough (cards and photos may still be loading). Gives up after 3 s or when she scrolls herself. */
@@ -75,8 +68,9 @@ export function initScrollMemory(): void {
 }
 
 /** Call after every route change: back/forward returns to the saved position, anything new starts at the top. */
-export function onRouteChange(): void {
-  const { key, revisit } = entryKey();
+export function onRouteChange(entry: Entry): void {
+  const key = entry.key;
+  const revisit = !entry.isNew && positions.has(key);
   current = key;
   if (revisit) restore(positions.get(key)!);
   else {

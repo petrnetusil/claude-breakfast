@@ -15,10 +15,20 @@ export function useRoute(): string[] {
   return path ? path.split('/') : [];
 }
 
+let replaced = false;
+/** True once after a navigate(…, true): the new screen took the place of the old entry. */
+export function takeReplaced(): boolean {
+  const r = replaced;
+  replaced = false;
+  return r;
+}
+
 export function navigate(path: string, replace = false): void {
   const url = `#/${path}`;
-  if (replace) window.location.replace(url);
-  else window.location.hash = url;
+  if (replace) {
+    replaced = true;
+    window.location.replace(url);
+  } else window.location.hash = url;
 }
 
 export function goBack(fallback: string): void {

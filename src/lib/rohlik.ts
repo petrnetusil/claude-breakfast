@@ -1,4 +1,4 @@
-import type { Ingredient, RecipeCard, RecipeDetail, Slot } from './types';
+import type { Ingredient, ProductCard, RecipeCard, RecipeDetail, Selection, Slot } from './types';
 
 /*
  * Live recipe data from rohlik.cz. These are the public endpoints Rohlík's own website uses;
@@ -101,8 +101,11 @@ export function parseAmount(text: string): { amount: number | null; unit: string
   return { amount: Number.isFinite(amount) ? amount : null, unit: null };
 }
 
-/** Kitchen tools and baking paper are listed as ingredients; they are not shopping. */
-export const NOT_FOOD = /^(pomůcky|papír na pečení|alobal|potravinová fólie|špejle|párátka)/i;
+/**
+ * Not shopping: kitchen tools, baking paper, and plain water from the tap ("Voda neperlivá",
+ * "Teplá voda"). Sparkling, soda or coconut water stay on the list.
+ */
+export const NOT_FOOD = /^(pomůcky|papír na pečení|alobal|potravinová fólie|špejle|párátka)|^((studená|teplá|horká|vlažná|vroucí|pitná) )?voda( neperlivá| z kohoutku)?$/i;
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
@@ -131,7 +134,7 @@ interface RawDetail {
   servings?: { name: string; default?: boolean }[];
   image?: { path?: string };
   author?: { name?: string };
-  ingredients?: { name: string; items: { name: string; ingredientName: string }[] }[];
+  ingredients?: { name: string; items: { name: string; ingredientName: string; ingredientId?: number }[] }[];
   directions?: { name: string; steps: { content: string }[] }[];
 }
 
@@ -140,7 +143,12 @@ export function toDetail(raw: RawDetail): RecipeDetail {
   const ingredients: Ingredient[] = (raw.ingredients ?? [])
     .flatMap((group) => group.items)
     .filter((item) => !NOT_FOOD.test(item.name ?? item.ingredientName))
-    .map((item) => ({ name: cap((item.name || item.ingredientName).trim()), text: item.ingredientName.trim(), ...parseAmount(item.ingredientName) }));
+    .map((item) => ({
+      ingredientId: item.ingredientId ?? null,
+      name: cap((item.name || item.ingredientName).trim()),
+      text: item.ingredientName.trim(),
+      ...parseAmount(item.ingredientName),
+    }));
   const steps = (raw.directions ?? []).flatMap((d) => d.steps.map((s) => s.content.trim())).filter(Boolean);
   return {
     id: raw.id,
@@ -220,3 +228,90 @@ export async function findRecipes(opts: { slot?: Slot; filter?: SwapFilter; quer
   const res = await getJson<{ recipesIds?: number[] }>(`/api/v1/components/recipes/chef-navigation?${params}`);
   return res?.recipesIds ?? [];
 }
+
+// ───────────── Products for the shopping list ─────────────
+
+interface RawSelection {
+  metadata?: { portions?: number; defaultPortions?: number };
+  ingredientGroups?: {
+    defaultSelected?: boolean;
+    ingredients: { ingredientId: number; title: string; products: { productId: number; amount: number; selected?: boolean }[] }[];
+  }[];
+}
+
+export function toSelection(recipeId: number, raw: RawSelection): Selection {
+  const portions = raw.metadata?.portions ?? raw.metadata?.defaultPortions ?? 4;
+  const ingredients = (raw.ingredientGroups ?? []).flatMap((group) =>
+    group.ingredients.map((i) => {
+      // Rohlík's pick first, then the alternatives in Rohlík's order.
+      const sorted = [...i.products].sort((a, b) => Number(!!b.selected) - Number(!!a.selected));
+      return {
+        ingredientId: i.ingredientId,
+        title: i.title.trim(),
+        staple: group.defaultSelected === false,
+        options: sorted.map((p) => ({ productId: p.productId, packs: Math.max(0, p.amount) })),
+      };
+    }),
+  );
+  return { recipeId, portions: Math.max(1, portions), ingredients };
+}
+
+interface RawProductCard {
+  productId: number;
+  name: string;
+  image?: { path?: string };
+  textualAmount?: string;
+  prices?: { originalPrice?: number; salePrice?: number | null };
+  stock?: { availabilityStatus?: string; maxAvailableAmount?: number };
+}
+
+export function toProductCard(raw: RawProductCard): ProductCard {
+  const status = raw.stock?.availabilityStatus ?? 'AVAILABLE';
+  return {
+    id: raw.productId,
+    name: raw.name.trim(),
+    image: imageUrl(raw.image?.path),
+    amountText: (raw.textualAmount ?? '').trim(),
+    price: raw.prices?.originalPrice ?? 0,
+    salePrice: raw.prices?.salePrice ?? null,
+    available: status === 'AVAILABLE' && (raw.stock?.maxAvailableAmount ?? 1) > 0,
+  };
+}
+
+const selections = new Map<number, Promise<Selection>>();
+const productCards = new Map<number, ProductCard>();
+
+export function fetchSelection(recipeId: number): Promise<Selection> {
+  let p = selections.get(recipeId);
+  if (!p) {
+    p = getJson<RawSelection>(`/api/v1/chef/${recipeId}/ingredients/selection`).then((raw) => toSelection(recipeId, raw ?? {}));
+    p.catch(() => selections.delete(recipeId));
+    selections.set(recipeId, p);
+  }
+  return p;
+}
+
+export const cachedProduct = (id: number) => productCards.get(id);
+
+/** Product cards for the given ids; Rohlík serves 50 per request. Unknown ids are left out. */
+export async function fetchProductCards(ids: number[]): Promise<Map<number, ProductCard>> {
+  const missing = [...new Set(ids)].filter((id) => !productCards.has(id));
+  const batches: number[][] = [];
+  for (let i = 0; i < missing.length; i += 50) batches.push(missing.slice(i, i + 50));
+  await Promise.all(
+    batches.map(async (batch) => {
+      const q = batch.map((id) => `products=${id}`).join('&');
+      const raw = (await getJson<RawProductCard[]>(`/api/v1/products/card?${q}&categoryType=normal`)) ?? [];
+      for (const r of raw) productCards.set(r.productId, toProductCard(r));
+    }),
+  );
+  return new Map(ids.filter((id) => productCards.has(id)).map((id) => [id, productCards.get(id)!]));
+}
+
+/** Products Rohlík considers similar (for a sold-out product, say). */
+export async function fetchSimilar(productId: number): Promise<number[]> {
+  const raw = (await getJson<{ productId: number; similarProducts: number[] }[]>(`/api/v1/products/similar?products=${productId}`)) ?? [];
+  return raw.find((r) => r.productId === productId)?.similarProducts ?? [];
+}
+
+export const productUrl = (id: number) => `${BASE}/${id}`;

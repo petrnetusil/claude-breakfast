@@ -4,7 +4,7 @@ import { buildShopping, formatAmount, shoppingText } from './shopping';
 import type { Ingredient, RecipeDetail } from './types';
 
 // Made-up recipes; no Rohlík data is stored in this repo.
-const ing = (name: string, amount: number | null, unit: string | null): Ingredient => ({ name, amount, unit, text: '' });
+const ing = (name: string, amount: number | null, unit: string | null, ingredientId: number | null = null): Ingredient => ({ ingredientId, name, amount, unit, text: '' });
 const recipe = (id: number, servings: number, ingredients: Ingredient[]): RecipeDetail => ({
   id, title: `Recept ${id}`, slug: `${id}-recept`, image: '', time: 20, author: '', servings, servingsLabel: `${servings} porce`, ingredients, steps: [],
 });

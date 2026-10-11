@@ -4,12 +4,13 @@ import type { AppState, Household, Meal, WeekPlan } from './types';
 
 /*
  * The only state kept on the device: the current week (recipe ids, portions, ticks),
- * the household's portion defaults and favourite recipe ids. No Rohlík data is stored.
+ * the household's portion defaults, favourite recipe ids and her product choices (numbers only).
+ * No Rohlík data is stored.
  * v2: the week now comes from Claude via a link; v1 held built-in recipes.
  */
 const KEY = 'jidelnicek-v2';
 
-const DEFAULT_STATE: AppState = { household: DEFAULT_HOUSEHOLD, week: null, favorites: [] };
+const DEFAULT_STATE: AppState = { household: DEFAULT_HOUSEHOLD, week: null, favorites: [], productChoices: {} };
 
 function load(): AppState {
   try {
@@ -93,6 +94,10 @@ export const actions = {
       ...s,
       favorites: s.favorites.includes(recipeId) ? s.favorites.filter((id) => id !== recipeId) : [...s.favorites, recipeId],
     }));
+  },
+  /** Her product for an ingredient; used again in later weeks. */
+  chooseProduct(ingredientId: number, productId: number): void {
+    update((s) => ({ ...s, productChoices: { ...s.productChoices, [ingredientId]: productId } }));
   },
   approve(): void {
     editWeek((w) => ({ ...w, status: 'approved' }));

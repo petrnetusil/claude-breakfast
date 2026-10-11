@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { cachedCard, fetchCards, fetchDetail } from './rohlik';
-import type { RecipeCard, RecipeDetail } from './types';
+import { cachedCard, cachedProduct, fetchCards, fetchDetail, fetchProductCards, fetchSelection } from './rohlik';
+import type { ProductCard, RecipeCard, RecipeDetail, Selection } from './types';
 
 export interface Loaded<T> {
   data: T;
@@ -48,11 +48,11 @@ export function useCards(ids: number[]): Loaded<Map<number, RecipeCard>> {
   return { data, loading: !fresh, error: fresh ? state.error : null, retry: () => setTick((t) => t + 1) };
 }
 
-/** Full recipes (ingredients, steps) for these ids, fetched live in parallel. */
-export function useDetails(ids: number[]): Loaded<Map<number, RecipeDetail>> & { failed: number[] } {
+/** One request per id, in parallel; results by id plus the ids that failed. */
+function useEach<T>(ids: number[], load: (id: number) => Promise<T>): Loaded<Map<number, T>> & { failed: number[] } {
   const key = [...new Set(ids)].sort((a, b) => a - b).join(',');
   const [tick, setTick] = useState(0);
-  const [state, setState] = useState<{ key: string; data: Map<number, RecipeDetail>; failed: number[]; error: string | null; done: boolean }>({
+  const [state, setState] = useState<{ key: string; data: Map<number, T>; failed: number[]; error: string | null; done: boolean }>({
     key: '',
     data: new Map(),
     failed: [],
@@ -63,10 +63,9 @@ export function useDetails(ids: number[]): Loaded<Map<number, RecipeDetail>> & {
   useEffect(() => {
     const list = key ? key.split(',').map(Number) : [];
     let live = true;
-    setState({ key, data: new Map(), failed: [], error: null, done: false });
-    Promise.allSettled(list.map((id) => fetchDetail(id))).then((results) => {
+    Promise.allSettled(list.map((id) => load(id))).then((results) => {
       if (!live) return;
-      const data = new Map<number, RecipeDetail>();
+      const data = new Map<number, T>();
       const failed: number[] = [];
       let error: string | null = null;
       results.forEach((r, i) => {
@@ -91,6 +90,45 @@ export function useDetails(ids: number[]): Loaded<Map<number, RecipeDetail>> & {
     error: fresh ? state.error : null,
     retry: () => setTick((t) => t + 1),
   };
+}
+
+/** Full recipes (ingredients, steps) for these ids, fetched live in parallel. */
+export function useDetails(ids: number[]): Loaded<Map<number, RecipeDetail>> & { failed: number[] } {
+  return useEach(ids, fetchDetail);
+}
+
+/** Rohlík's products per ingredient for these recipes, fetched live in parallel. */
+export function useSelections(ids: number[]): Loaded<Map<number, Selection>> & { failed: number[] } {
+  return useEach(ids, fetchSelection);
+}
+
+/** Product cards (picture, price, stock) for these ids. Already loaded cards show at once. */
+export function useProductCards(ids: number[]): Loaded<Map<number, ProductCard>> {
+  const key = [...new Set(ids)].sort((a, b) => a - b).join(',');
+  const [tick, setTick] = useState(0);
+  const [state, setState] = useState<{ key: string; error: string | null; done: boolean }>({ key: '', error: null, done: false });
+
+  useEffect(() => {
+    const list = key ? key.split(',').map(Number) : [];
+    let live = true;
+    fetchProductCards(list)
+      .then(() => live && setState({ key, error: null, done: true }))
+      .catch((e) => live && setState({ key, error: message(e), done: true }));
+    return () => {
+      live = false;
+    };
+  }, [key, tick]);
+
+  const fresh = state.key === key && state.done;
+  const data = useMemo(() => {
+    const m = new Map<number, ProductCard>();
+    for (const id of key ? key.split(',').map(Number) : []) {
+      const c = cachedProduct(id);
+      if (c) m.set(id, c);
+    }
+    return m;
+  }, [key, state]);
+  return { data, loading: !fresh, error: fresh ? state.error : null, retry: () => setTick((t) => t + 1) };
 }
 
 export function useDetail(id: number): Loaded<RecipeDetail | undefined> {

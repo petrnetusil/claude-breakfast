@@ -4,6 +4,7 @@ import { DAY_NAMES, longDate } from '../lib/dates';
 import { cleanText } from '../lib/link';
 import { isWeekend, resolveMeal, weekRecipeIds } from '../lib/planner';
 import { findRecipes } from '../lib/rohlik';
+import { backToDay } from '../lib/history';
 import { goBack, href } from '../lib/router';
 import { SLOT } from '../lib/slots';
 import { actions, useStore } from '../lib/store';
@@ -151,19 +152,25 @@ export function Swap({ dayIdx, mealIdx }: { dayIdx: number; mealIdx: number }) {
   ];
   if (slot === 've' || slot === 'ob') filters.push({ key: 'bezmasa', label: 'Bez masa' }, { key: 'ryba', label: 'Ryba' });
 
+  /** Leave without a change: one step back, wherever she came from. */
   const done = () => {
     forgetSwapView(key);
     goBack(`d/${dayIdx}`);
   };
+  /** A meal was changed: back to its day, past the swap screen and any recipe screen before it. */
+  const changed = () => {
+    forgetSwapView(key);
+    backToDay(dayIdx);
+  };
   const pick = (recipeId: number) => {
     actions.setRecipe(dayIdx, mealIdx, recipeId);
-    done();
+    changed();
   };
   const pickOwn = () => {
     const text = cleanText(own);
     if (!text) return;
     actions.setText(dayIdx, mealIdx, text);
-    done();
+    changed();
   };
 
   // A weekday lunch can also simply be yesterday's dinner.
@@ -211,7 +218,7 @@ export function Swap({ dayIdx, mealIdx }: { dayIdx: number; mealIdx: number }) {
             className="btn soft"
             onClick={() => {
               actions.setLeftover(dayIdx, mealIdx);
-              done();
+              changed();
             }}
           >
             Vybrat

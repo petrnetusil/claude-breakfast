@@ -163,3 +163,18 @@ export async function copyText(text: string): Promise<boolean> {
     return false;
   }
 }
+
+/** A product picture: lazy, with the same loading sweep as recipe photos. */
+export function ProductImage({ image, pending = false, className = '' }: { image: string | undefined; pending?: boolean; className?: string }) {
+  const [loaded, setLoaded] = useState<string | null>(null);
+  const [failed, setFailed] = useState<string | null>(null);
+  const src = image && failed !== image ? image : null;
+  const ready = src !== null && loaded === src;
+  return (
+    <div className={`photo product-photo ${(src && !ready) || (!src && pending) ? 'is-loading' : ''} ${className}`}>
+      {src && (
+        <img key={src} src={src} alt="" loading="lazy" referrerPolicy="no-referrer" className={ready ? 'ready' : ''} onLoad={() => setLoaded(src)} onError={() => setFailed(src)} />
+      )}
+    </div>
+  );
+}

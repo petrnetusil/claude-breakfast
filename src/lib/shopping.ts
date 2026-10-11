@@ -41,6 +41,8 @@ export interface ShopItem {
   pantry: boolean;
   /** Titles of the recipes that need it. */
   recipes: string[];
+  /** Rohlík's ingredient numbers behind this line; the first one picks the product. */
+  ingredientIds: number[];
 }
 
 export function roundAmount(amount: number, unit: string | null): number {
@@ -107,8 +109,10 @@ export function buildShopping(week: WeekPlan, details: Map<number, RecipeDetail>
       if (item) {
         if (amount != null) item.raw = (item.raw ?? 0) + amount;
         if (!item.recipes.includes(recipe.title)) item.recipes.push(recipe.title);
+        if (ing.ingredientId != null && !item.ingredientIds.includes(ing.ingredientId)) item.ingredientIds.push(ing.ingredientId);
       } else {
-        map.set(key, { key, name: ing.name, unit, amount: null, raw: amount, category, pantry: category === 'koreni', recipes: [recipe.title] });
+        const ingredientIds = ing.ingredientId != null ? [ing.ingredientId] : [];
+        map.set(key, { key, name: ing.name, unit, amount: null, raw: amount, category, pantry: category === 'koreni', recipes: [recipe.title], ingredientIds });
       }
     }
   }
@@ -128,10 +132,27 @@ export function buildShopping(week: WeekPlan, details: Map<number, RecipeDetail>
 
 export const isTicked = (week: WeekPlan, item: ShopItem): boolean => week.shop[item.key] ?? !item.pantry;
 
-export function shoppingText(week: WeekPlan, list: ShopList): string {
+/** The chosen Rohlík product for a list line. */
+export interface PickedProduct {
+  productId: number;
+  name: string;
+  packs: number;
+}
+
+const days = (n: number) => `na ${n} ${n === 1 ? 'den' : n < 5 ? 'dny' : 'dní'}`;
+
+/**
+ * The shopping list as text. With `products`, each line carries the chosen product's number, so
+ * Claude can put exactly that product in the cart.
+ */
+export function shoppingText(week: WeekPlan, list: ShopList, products?: Map<string, PickedProduct>): string {
   const lines = list.items
     .filter((i) => isTicked(week, i))
-    .map((i) => (i.amount == null ? i.name : `${i.name} – ${formatAmount(i.amount, i.unit)}`));
-  for (const s of list.simple) lines.push(`${s.text} (na ${s.days} ${s.days === 1 ? 'den' : s.days < 5 ? 'dny' : 'dní'})`);
+    .map((i) => {
+      const need = i.amount == null ? i.name : `${i.name} – ${formatAmount(i.amount, i.unit)}`;
+      const p = products?.get(i.key);
+      return p ? `${need}: ${p.name} (č. ${p.productId}), ${p.packs}×` : need;
+    });
+  for (const s of list.simple) lines.push(`${s.text} (${days(s.days)})`);
   return lines.map((l) => `- ${l}`).join('\n');
 }

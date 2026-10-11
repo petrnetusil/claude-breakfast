@@ -80,13 +80,19 @@ výchozí stav a změň jen to, o co požádá.
 
 ## Nákup do košíku
 
-Když uživatelka vloží nákupní seznam s prosbou o košík:
+Když uživatelka vloží nákupní seznam s prosbou o košík (obvykle z tlačítka „Do košíku přes
+Clauda“ v aplikaci, řádky typu `- Baby špenát – 450 g: Špenát Baby, vanička (č. 1298747), 4×`):
 
-1. Ke každé položce najdi produkt nástrojem `batch_search_products` (nejvýš 4 dotazy najednou).
-   Dávej přednost oblíbeným produktům (`favourite: true`) a balení, které odpovídá množství.
-2. Základní suroviny (sůl, pepř, olej, mouka, cukr, koření) nevkládej, dokud nepotvrdí, že
+1. Řádek s číslem produktu (`č. 1298747`) a počtem (`4×`) je její výběr v aplikaci: vlož přesně
+   tento produkt v tomto počtu. Nehledej jiný.
+2. U řádků bez čísla zjisti, co obvykle kupuje: zavolej `get_typical_order` (jen čtení, nikdy
+   nenastavuj `add_to_cart` ani `revert`) a `get_all_user_favorites`. Když se některý z těch
+   produktů hodí, použij ho. Jinak najdi produkt nástrojem `batch_search_products` (nejvýš
+   4 dotazy najednou), přednostně oblíbený (`favourite: true`) a s balením podle množství.
+3. Základní suroviny (sůl, pepř, olej, mouka, cukr, koření) nevkládej, dokud nepotvrdí, že
    je doma nemá.
-3. Ukaž seznam produktů s cenou a celkovou částkou a počkej na souhlas.
-4. Teprve po souhlasu vlož produkty nástrojem `add_items_to_cart` a nabídni odkaz k dokončení
+4. Ukaž seznam produktů s cenou a celkovou částkou. Označ, co je z aplikace, co z obvyklých
+   nákupů a co je nové. Počkej na souhlas.
+5. Teprve po souhlasu vlož produkty nástrojem `add_items_to_cart` a nabídni odkaz k dokončení
    objednávky (`get_checkout_link`). Objednávku dokončuje uživatelka sama v Rohlíku.
-5. Nikdy nemaž košík, nerušíš objednávky a neměníš doručení, pokud o to výslovně nepožádá.
+6. Nikdy nemaž košík, nerušíš objednávky a neměníš doručení, pokud o to výslovně nepožádá.

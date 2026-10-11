@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Heart, Icon, LoadError, RecipeImage, Stepper } from '../components/ui';
 import { recipeUrl } from '../lib/rohlik';
-import { goBack, href, navigate } from '../lib/router';
+import { backToDay } from '../lib/history';
+import { goBack, href } from '../lib/router';
 import { formatAmount, roundAmount, scale } from '../lib/shopping';
 import { SLOT } from '../lib/slots';
 import { actions, useStore } from '../lib/store';
@@ -31,9 +32,8 @@ export function RecipeView({ id, dayIdx, mealIdx, pick = false }: { id: number; 
     actions.setRecipe(dayIdx, mealIdx, id);
     if (own != null && own !== planned.servings) actions.setServings(dayIdx, mealIdx, own);
     forgetSwapView(swapKey(dayIdx, mealIdx));
-    // Back past the swap screen to the day.
-    if (window.history.length > 2) window.history.go(-2);
-    else navigate(`d/${dayIdx}`, true);
+    // Back to the day, past the swap screen (and the old meal's recipe, if she came that way).
+    backToDay(dayIdx);
   };
 
   if (!recipe) {

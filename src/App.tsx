@@ -1,10 +1,12 @@
 import { useEffect, useLayoutEffect, useState } from 'react';
 import { parseWeekLink } from './lib/link';
 import { useRoute } from './lib/router';
+import { currentEntry, recordRoute } from './lib/history';
 import { onRouteChange } from './lib/scroll';
 import { actions, useStore } from './lib/store';
 import { Favorites } from './screens/Favorites';
 import { Planner } from './screens/Planner';
+import { ProductSwap } from './screens/ProductSwap';
 import { RecipeView } from './screens/RecipeView';
 import { Shopping } from './screens/Shopping';
 import { Start } from './screens/Start';
@@ -59,6 +61,7 @@ function Screen() {
   }
   if (name === 'week') return <Week />;
   if (name === 'shop') return <Shopping />;
+  if (name === 'produkt' && int(a, 1e7) !== undefined) return <ProductSwap ingredientId={Number(a)} />;
   return <Planner dayIdx={name === 'd' ? int(a, 6) ?? 0 : 0} />;
 }
 
@@ -73,7 +76,9 @@ export function App() {
 
   // A new screen starts at the top; going back returns to where it was left.
   useLayoutEffect(() => {
-    onRouteChange();
+    const entry = currentEntry();
+    recordRoute(entry, route);
+    onRouteChange(entry);
   }, [route]);
 
   return (

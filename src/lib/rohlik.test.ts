@@ -79,8 +79,9 @@ describe('Rohlík responses', () => {
       image: { path: '/images/9.jpg' },
       author: { name: 'Testovací kuchař' },
       ingredients: [
-        { name: 'SUROVINY', items: [{ name: 'mrkev', ingredientName: '300 g mrkve' }, { name: 'Sůl', ingredientName: 'Špetka soli' }] },
+        { name: 'SUROVINY', items: [{ name: 'mrkev', ingredientName: '300 g mrkve', ingredientId: 7 }, { name: 'Sůl', ingredientName: 'Špetka soli' }] },
         { name: 'POMŮCKY', items: [{ name: 'Pomůcky na vaření', ingredientName: 'Pomůcky na vaření' }] },
+        { name: 'DALŠÍ', items: [{ name: 'Voda neperlivá', ingredientName: '200 ml vody' }, { name: 'Teplá voda', ingredientName: 'Teplá voda' }] },
       ],
       directions: [{ name: 'POSTUP', steps: [{ content: 'Nakrájejte. ' }, { content: '' }, { content: 'Uvařte.' }] }],
     });
@@ -89,9 +90,17 @@ describe('Rohlík responses', () => {
     expect(d.servings).toBe(6);
     expect(d.servingsLabel).toBe('6 porcí');
     expect(d.ingredients).toEqual([
-      { name: 'Mrkev', text: '300 g mrkve', amount: 300, unit: 'g' },
-      { name: 'Sůl', text: 'Špetka soli', amount: null, unit: 'špetka' },
+      { ingredientId: 7, name: 'Mrkev', text: '300 g mrkve', amount: 300, unit: 'g' },
+      { ingredientId: null, name: 'Sůl', text: 'Špetka soli', amount: null, unit: 'špetka' },
     ]);
     expect(d.steps).toEqual(['Nakrájejte.', 'Uvařte.']);
+  });
+});
+
+describe('what is not shopping', () => {
+  it('leaves out tap water and tools, keeps other waters', async () => {
+    const { NOT_FOOD } = await import('./rohlik');
+    for (const s of ['Voda neperlivá', 'Teplá voda', 'voda', 'Papír na pečení']) expect(NOT_FOOD.test(s), s).toBe(true);
+    for (const s of ['Sodová voda', 'Kokosová voda', 'Voda perlivá', 'Vodnice']) expect(NOT_FOOD.test(s), s).toBe(false);
   });
 });

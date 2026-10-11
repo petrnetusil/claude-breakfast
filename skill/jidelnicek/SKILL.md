@@ -114,12 +114,19 @@ the list as products. Mark staples (sůl, pepř, olej, mouka, cukr, koření) as
 
 ## Cart
 
-When the user wants the shopping in the Rohlík cart:
+When the user wants the shopping in the Rohlík cart. The list usually comes from the app's
+"Do košíku přes Clauda" button; its lines look like
+`- Baby špenát – 450 g: Špenát Baby, vanička (č. 1298747), 4×`.
 
-1. Find a product for each item with `batch_search_products` (at most 4 queries per call).
-   Prefer products with `favourite: true` and a pack that matches the amount.
-2. Leave staples out unless the user says they are missing at home.
-3. Show the products with price and the total. Wait for the user's yes.
-4. Only then add them with `add_items_to_cart` and give the link from `get_checkout_link`.
+1. A line with a product number (`č. 1298747`) and a count (`4×`) is the user's choice in the app:
+   use exactly that product and quantity. Do not search for another one.
+2. For lines without a number, learn what the user usually buys: call `get_typical_order`
+   (read only: never set `add_to_cart` or `revert`) and `get_all_user_favorites`. When one of
+   those products fits the item, use it. Otherwise find one with `batch_search_products`
+   (at most 4 queries per call), preferring `favourite: true` and a pack that fits the amount.
+3. Leave staples out unless the user says they are missing at home.
+4. Show the products with price and the total. Mark which came from the app, which from the
+   usual purchases, and which are new. Wait for the user's yes.
+5. Only then add them with `add_items_to_cart` and give the link from `get_checkout_link`.
    The user completes the order in Rohlík.
-5. Never clear the cart, cancel orders or change delivery unless the user asks for it.
+6. Never clear the cart, cancel orders or change delivery unless the user asks for it.

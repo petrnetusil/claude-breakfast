@@ -22,10 +22,16 @@ No Rohlík data may be stored in this repo or cached on the device (owner's rule
 - `src/lib/scroll.ts` – scroll position per history entry: back/forward returns to where the screen
   was left, a new screen starts at the top. Positions (numbers only) live in sessionStorage.
 - `src/lib/shopping.ts` – scaling, aggregation by Rohlík's ingredient name, categories, Czech amounts.
+- `src/lib/products.ts` – Rohlík products for the list (from `/api/v1/chef/{id}/ingredients/selection`):
+  her choice first, then Rohlík's pick, then alternatives; sold out skipped. Packs come from the
+  week's need and the pack size, not from Rohlík's per-recipe counts (those add up to a bottle of
+  oil per recipe). `src/lib/useShopping.ts` loads it all for the Shopping and ProductSwap screens.
+- `src/lib/history.ts` – key and position per history entry; `backToDay` returns to the day after
+  a meal change, past the swap and recipe screens.
 - `src/lib/store.ts` – the only place that mutates state; localStorage key `jidelnicek-v2`
-  (week, household portions, favourite ids).
+  (week, household portions, favourite ids, her product choices per ingredient: numbers only).
 - `src/lib/router.ts` – hash router. Routes: `d/:day`, `swap/:day/:meal`, `recipe/:id[/:day/:meal[/vybrat]]`,
-  `week`, `shop`, `fav`, `start`.
+  `week`, `shop`, `produkt/:ingredientId`, `fav`, `start`.
 - `src/screens/*` – one file per screen. `src/components/ui.tsx` – shared pieces.
 - `docs/` – setup guide for the wife and the Claude Project instructions (Czech).
 - `skill/jidelnicek/` – Claude skill (upload as zip in claude.ai): `SKILL.md` plus
