@@ -38,12 +38,12 @@ const int = (s: string | undefined, max: number): number | undefined => {
 };
 
 function Screen() {
-  const [name, a, b, c] = useRoute();
+  const [name, a, b, c, d] = useRoute();
   const week = useStore().week;
 
   // Recipes can be opened without a plan; everything else needs one.
   if (name === 'recipe' && int(a, 1e6) !== undefined) {
-    return <RecipeView id={Number(a)} dayIdx={week ? int(b, 6) : undefined} mealIdx={week ? int(c, 5) : undefined} />;
+    return <RecipeView id={Number(a)} dayIdx={week ? int(b, 6) : undefined} mealIdx={week ? int(c, 5) : undefined} pick={d === 'vybrat' && week?.status === 'draft'} />;
   }
   if (name === 'fav') return <Favorites />;
   if (!week || name === 'start') return <Start />;
@@ -70,9 +70,10 @@ export function App() {
     return () => window.clearTimeout(t);
   }, []);
 
-  // Each screen starts at the top.
+  // Each screen starts at the top. The swap screen sets its own position, so coming back from a
+  // recipe returns to the same place in the list.
   useEffect(() => {
-    window.scrollTo(0, 0);
+    if (!route.startsWith('swap/')) window.scrollTo(0, 0);
   }, [route]);
 
   return (

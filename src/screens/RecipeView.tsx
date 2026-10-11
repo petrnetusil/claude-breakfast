@@ -1,25 +1,40 @@
 import { useState } from 'react';
 import { Heart, Icon, LoadError, RecipeImage, Stepper } from '../components/ui';
 import { recipeUrl } from '../lib/rohlik';
-import { goBack, href } from '../lib/router';
+import { goBack, href, navigate } from '../lib/router';
 import { formatAmount, roundAmount, scale } from '../lib/shopping';
 import { SLOT } from '../lib/slots';
 import { actions, useStore } from '../lib/store';
+import { forgetSwapView, swapKey } from '../lib/swapMemory';
 import { useDetail } from '../lib/useRohlik';
 
 const plural = (n: number, one: string, few: string, many: string) => (n === 1 ? one : n < 5 ? few : many);
 
-export function RecipeView({ id, dayIdx, mealIdx }: { id: number; dayIdx?: number; mealIdx?: number }) {
+/**
+ * `pick`: opened from the swap screen as a candidate for this meal. Portions are only previewed,
+ * and "Vybrat do jídelníčku" puts the recipe in the plan.
+ */
+export function RecipeView({ id, dayIdx, mealIdx, pick = false }: { id: number; dayIdx?: number; mealIdx?: number; pick?: boolean }) {
   const week = useStore().week;
   const { data: recipe, loading, error, retry } = useDetail(id);
   // Opened from a meal in the plan: portions are that meal's and changes are saved to it.
-  const meal = week && dayIdx != null && mealIdx != null ? week.days[dayIdx]?.meals[mealIdx] : undefined;
-  const [own, setOwn] = useState<number | null>(null);
+  const planned = week && dayIdx != null && mealIdx != null ? week.days[dayIdx]?.meals[mealIdx] : undefined;
+  const meal = pick ? undefined : planned;
+  const [own, setOwn] = useState<number | null>(pick && planned ? planned.servings : null);
   const servings = meal ? meal.servings : own ?? recipe?.servings ?? 4;
   const setServings = (n: number) => (meal && dayIdx != null && mealIdx != null ? actions.setServings(dayIdx, mealIdx, n) : setOwn(n));
-  const back = dayIdx != null ? `d/${dayIdx}` : '';
-  const slot = meal?.slot ?? 've';
+  const back = pick ? `swap/${dayIdx}/${mealIdx}` : dayIdx != null ? `d/${dayIdx}` : '';
+  const slot = planned?.slot ?? 've';
   const canSwap = meal && week?.status === 'draft';
+  const choose = () => {
+    if (!planned || dayIdx == null || mealIdx == null) return;
+    actions.setRecipe(dayIdx, mealIdx, id);
+    if (own != null && own !== planned.servings) actions.setServings(dayIdx, mealIdx, own);
+    forgetSwapView(swapKey(dayIdx, mealIdx));
+    // Back past the swap screen to the day.
+    if (window.history.length > 2) window.history.go(-2);
+    else navigate(`d/${dayIdx}`, true);
+  };
 
   if (!recipe) {
     return (
@@ -54,9 +69,9 @@ export function RecipeView({ id, dayIdx, mealIdx }: { id: number; dayIdx?: numbe
 
       <div className="recipe-body">
         <div>
-          {meal && (
+          {planned && (
             <p className="slot-label" style={{ color: SLOT[slot].ink }}>
-              {SLOT[slot].label}
+              {pick ? `Návrh na ${SLOT[slot].acc}` : SLOT[slot].label}
             </p>
           )}
           <h1>{recipe.title}</h1>
@@ -119,9 +134,20 @@ export function RecipeView({ id, dayIdx, mealIdx }: { id: number; dayIdx?: numbe
       </div>
 
       <footer className="bottom two">
-        <button type="button" className="btn primary big grow" onClick={() => goBack(back)}>
-          {meal ? 'Nechat v jídelníčku' : 'Zpět'}
-        </button>
+        {pick && planned ? (
+          <button type="button" className="btn primary big grow" onClick={choose}>
+            Vybrat do jídelníčku
+          </button>
+        ) : (
+          <button type="button" className="btn primary big grow" onClick={() => goBack(back)}>
+            {meal ? 'Nechat v jídelníčku' : 'Zpět'}
+          </button>
+        )}
+        {pick && (
+          <button type="button" className="btn soft big" onClick={() => goBack(back)}>
+            Zpět
+          </button>
+        )}
         {canSwap && (
           <a className="btn soft big" href={href(`swap/${dayIdx}/${mealIdx}`)}>
             Vyměnit

@@ -17,10 +17,12 @@ No Rohlík data may be stored in this repo or cached on the device (owner's rule
 - `src/lib/rohlik.ts` – live Rohlík endpoints (cards, detail, search), parsing of amounts, portions,
   times. In-memory only while the page is open.
 - `src/lib/useRohlik.ts` – hooks for cards and details. `src/lib/planner.ts` – meal resolution.
+- `src/lib/swapMemory.ts` – in-memory state of the swap screen (list, filter, search, scroll), so
+  opening a candidate recipe and going back returns to the same place. Swap loads more on scroll.
 - `src/lib/shopping.ts` – scaling, aggregation by Rohlík's ingredient name, categories, Czech amounts.
 - `src/lib/store.ts` – the only place that mutates state; localStorage key `jidelnicek-v2`
   (week, household portions, favourite ids).
-- `src/lib/router.ts` – hash router. Routes: `d/:day`, `swap/:day/:meal`, `recipe/:id[/:day/:meal]`,
+- `src/lib/router.ts` – hash router. Routes: `d/:day`, `swap/:day/:meal`, `recipe/:id[/:day/:meal[/vybrat]]`,
   `week`, `shop`, `fav`, `start`.
 - `src/screens/*` – one file per screen. `src/components/ui.tsx` – shared pieces.
 - `docs/` – setup guide for the wife and the Claude Project instructions (Czech).

@@ -1,26 +1,27 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Icon, LoadError, RecipeImage, TimeMeta, TopBar } from '../components/ui';
 import { DAY_NAMES, longDate } from '../lib/dates';
 import { cleanText } from '../lib/link';
-import { isWeekend, resolveMeal, suggest, weekRecipeIds } from '../lib/planner';
-import { findRecipes, type SwapFilter } from '../lib/rohlik';
+import { isWeekend, resolveMeal, weekRecipeIds } from '../lib/planner';
+import { findRecipes } from '../lib/rohlik';
 import { goBack, href } from '../lib/router';
 import { SLOT } from '../lib/slots';
 import { actions, useStore } from '../lib/store';
+import { cachedIds, forgetSwapView, getSwapView, type IdeaFilter, rememberIds, saveSwapView, swapKey } from '../lib/swapMemory';
 import { useCards } from '../lib/useRohlik';
 import type { RecipeCard, Slot } from '../lib/types';
 
-type Filter = SwapFilter | 'fav';
+/** Ideas added each time the end of the list comes into view. */
+const PAGE = 6;
 
-function IdeaCard({ recipe, slot, onPick }: { recipe: RecipeCard; slot: Slot; onPick: () => void }) {
-  const recipeHref = href(`recipe/${recipe.id}`);
+function IdeaCard({ recipe, slot, link, onPick }: { recipe: RecipeCard; slot: Slot; link: string; onPick: () => void }) {
   return (
     <article className="idea roll">
-      <a href={recipeHref} aria-label={`Otevřít recept: ${recipe.title}`}>
+      <a href={link} aria-label={`Otevřít recept: ${recipe.title}`}>
         <RecipeImage recipe={recipe} slot={slot} className="thumb tall" />
       </a>
       <div className="meal-text">
-        <a className="meal-title" href={recipeHref}>
+        <a className="meal-title" href={link}>
           {recipe.title}
         </a>
         <TimeMeta minutes={recipe.time} />
@@ -34,34 +35,49 @@ function IdeaCard({ recipe, slot, onPick }: { recipe: RecipeCard; slot: Slot; on
 }
 
 /** Ids from Rohlík for the current filter or search; favourites come from the device. */
-function useIdeaIds(slot: Slot, filter: Filter, query: string, favorites: number[]) {
-  const [state, setState] = useState<{ key: string; ids: number[]; error: string | null }>({ key: '', ids: [], error: null });
+function useIdeaIds(slot: Slot, filter: IdeaFilter, query: string, favorites: number[]) {
   const [tick, setTick] = useState(0);
-  const key = `${slot}|${filter}|${query}|${tick}`;
+  const key = `${slot}|${filter}|${query}`;
+  const [state, setState] = useState<{ key: string; ids: number[]; error: string | null } | null>(() => {
+    const ids = cachedIds(key);
+    return ids ? { key, ids, error: null } : null;
+  });
 
   useEffect(() => {
     if (filter === 'fav' && !query) return;
+    const known = cachedIds(key);
+    if (known && tick === 0) {
+      setState({ key, ids: known, error: null });
+      return;
+    }
     let live = true;
     const run = async () => {
-      let ids = await findRecipes({ slot, filter: filter === 'fav' ? 'all' : filter, query });
+      // Up to 300 ids is a short list of numbers; cards for them load as the list scrolls.
+      let ids = await findRecipes({ slot, filter: filter === 'fav' ? 'all' : filter, query, size: 300 });
       // Nothing for this meal type: search all of Rohlík Chef.
-      if (query && ids.length === 0) ids = await findRecipes({ query });
+      if (query && ids.length === 0) ids = await findRecipes({ query, size: 300 });
       return ids;
     };
     // Wait for typing to pause before asking Rohlík.
-    const t = window.setTimeout(() => {
-      run()
-        .then((ids) => live && setState({ key, ids, error: null }))
-        .catch((e: Error) => live && setState({ key, ids: [], error: e.message }));
-    }, query ? 400 : 0);
+    const t = window.setTimeout(
+      () => {
+        run()
+          .then((ids) => {
+            rememberIds(key, ids);
+            if (live) setState({ key, ids, error: null });
+          })
+          .catch((e: Error) => live && setState({ key, ids: [], error: e.message }));
+      },
+      query ? 400 : 0,
+    );
     return () => {
       live = false;
       window.clearTimeout(t);
     };
-  }, [key]);
+  }, [key, tick]);
 
   if (filter === 'fav' && !query) return { ids: favorites, loading: false, error: null, retry: () => {} };
-  const fresh = state.key === key;
+  const fresh = state?.key === key;
   return { ids: fresh ? state.ids : [], loading: !fresh, error: fresh ? state.error : null, retry: () => setTick((n) => n + 1) };
 }
 
@@ -73,46 +89,91 @@ export function Swap({ dayIdx, mealIdx }: { dayIdx: number; mealIdx: number }) {
   const slot = meal.slot;
   const current = resolveMeal(week, dayIdx, meal);
 
-  const [filter, setFilter] = useState<Filter>('all');
-  const [round, setRound] = useState(0);
-  const [query, setQuery] = useState('');
-  const [own, setOwn] = useState('');
-  const cardsRef = useRef<HTMLDivElement>(null);
+  // Coming back from a recipe: the same list, filter, search and scroll position as before.
+  const key = swapKey(dayIdx, mealIdx);
+  const [saved] = useState(() => getSwapView(key));
+  const [filter, setFilter] = useState<IdeaFilter>(saved?.filter ?? 'all');
+  const [query, setQuery] = useState(saved?.query ?? '');
+  const [own, setOwn] = useState(saved?.own ?? '');
+  const [count, setCount] = useState(saved?.count ?? PAGE);
+  const restoreY = useRef(saved?.scrollY ?? 0);
+  const sentinel = useRef<HTMLDivElement>(null);
 
   const found = useIdeaIds(slot, filter, query.trim(), state.favorites);
   // Recipes already in the week go last, the current one is left out.
-  const inWeek = new Set(weekRecipeIds(week));
   const ordered = useMemo(() => {
+    const inWeek = new Set(weekRecipeIds(week));
     const ids = found.ids.filter((id) => !(current?.kind === 'recipe' && current.id === id));
     return [...ids.filter((id) => !inWeek.has(id)), ...ids.filter((id) => inWeek.has(id))];
   }, [found.ids, week]);
-  const shownIds = suggest(ordered, round);
-  // Ask Rohlík for the next cards a little ahead, so "Další tři nápady" is instant.
-  const cards = useCards(ordered.slice(0, (round + 3) * 3));
+  const shownIds = ordered.slice(0, count);
+  // Ask Rohlík for the next cards a little ahead, so scrolling does not wait.
+  const cards = useCards(ordered.slice(0, count + PAGE * 2));
   const ideas = shownIds.map((id) => cards.data.get(id)).filter((c): c is RecipeCard => !!c);
-  const left = ordered.length - shownIds.length;
+  const more = count < ordered.length;
   const currentCards = useCards(current?.kind === 'recipe' ? [current.id] : []);
   const currentTitle = current?.kind === 'text' ? current.text : current ? currentCards.data.get(current.id)?.title : undefined;
 
+  // A new filter or search starts a new list. Compared with the last value, not a "first run" flag,
+  // so running the effect twice (React development mode) cannot reset a restored list.
+  const selection = `${filter}|${query}`;
+  const lastSelection = useRef(selection);
   useEffect(() => {
-    setRound(0);
-  }, [filter, query]);
+    if (lastSelection.current === selection) return;
+    lastSelection.current = selection;
+    setCount(PAGE);
+  }, [selection]);
 
-  // Bring the first of the newly added ideas into view.
+  // Keep the view for the way back from a recipe. Forget it when leaving for anything else.
   useEffect(() => {
-    if (round === 0) return;
-    const fresh = cardsRef.current?.children[round * 3] as HTMLElement | undefined;
-    fresh?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, [round]);
+    saveSwapView(key, { filter, query, own, count, scrollY: restoreY.current || window.scrollY });
+  }, [key, filter, query, own, count]);
+  useEffect(() => {
+    const onScroll = () => {
+      const v = getSwapView(key);
+      if (v && !restoreY.current) v.scrollY = window.scrollY;
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      if (!window.location.hash.startsWith('#/recipe/')) forgetSwapView(key);
+    };
+  }, [key]);
 
-  const filters: { key: Filter; label: string }[] = [
+  // Fresh visit: start at the top. Coming back: scroll to where she was once the list is there again.
+  useLayoutEffect(() => {
+    if (!saved) window.scrollTo(0, 0);
+  }, []);
+  useLayoutEffect(() => {
+    if (!restoreY.current) return;
+    const ready = ideas.length > 0 && ideas.length >= Math.min(count, ordered.length);
+    if (ready) {
+      window.scrollTo(0, restoreY.current);
+      restoreY.current = 0;
+    }
+  });
+
+  // Load more when the end of the list comes near the screen: no button. Only after the cards asked
+  // for last time have arrived, otherwise the end stays in view and the list runs away.
+  useEffect(() => {
+    const el = sentinel.current;
+    if (!el || !more || found.loading || cards.loading) return;
+    const io = new IntersectionObserver(([entry]) => entry.isIntersecting && setCount((c) => c + PAGE), { rootMargin: '0px 0px 600px 0px' });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [more, found.loading, cards.loading, count]);
+
+  const filters: { key: IdeaFilter; label: string }[] = [
     { key: 'all', label: 'Cokoliv' },
     { key: 'fav', label: 'Oblíbené' },
     { key: 'quick', label: 'Rychlé' },
   ];
   if (slot === 've' || slot === 'ob') filters.push({ key: 'bezmasa', label: 'Bez masa' }, { key: 'ryba', label: 'Ryba' });
 
-  const done = () => goBack(`d/${dayIdx}`);
+  const done = () => {
+    forgetSwapView(key);
+    goBack(`d/${dayIdx}`);
+  };
   const pick = (recipeId: number) => {
     actions.setRecipe(dayIdx, mealIdx, recipeId);
     done();
@@ -126,7 +187,7 @@ export function Swap({ dayIdx, mealIdx }: { dayIdx: number; mealIdx: number }) {
 
   // A weekday lunch can also simply be yesterday's dinner.
   const prevDinner = slot === 'ob' && !isWeekend(dayIdx) && !meal.leftover ? resolveMeal(week, dayIdx, { ...meal, leftover: true }) : undefined;
-  const loading = found.loading || (cards.loading && ideas.length < shownIds.length);
+  const waiting = found.loading || (cards.loading && ideas.length < shownIds.length);
   const error = found.error ?? cards.error;
 
   return (
@@ -195,7 +256,7 @@ export function Swap({ dayIdx, mealIdx }: { dayIdx: number; mealIdx: number }) {
 
       {error && <LoadError message={error} onRetry={() => (found.error ? found.retry() : cards.retry())} />}
 
-      {!loading && !error && ordered.length === 0 && (
+      {!waiting && !error && ordered.length === 0 && (
         <div className="empty">
           <strong>{query ? 'Na Rohlíku nic takového není' : filter === 'fav' ? 'Zatím žádné oblíbené' : 'Tomuhle filtru nic neodpovídá'}</strong>
           <span>
@@ -208,21 +269,25 @@ export function Swap({ dayIdx, mealIdx }: { dayIdx: number; mealIdx: number }) {
         </div>
       )}
 
-      {/* New ideas are added below; only the new cards roll in. The key resets on a filter or search change. */}
-      <div className="cards" key={`${filter}|${query}`} ref={cardsRef}>
+      {/* Only new cards roll in. The key resets the list on a filter or search change. */}
+      <div className="cards" key={`${filter}|${query}`}>
         {ideas.map((recipe) => (
-          <IdeaCard key={recipe.id} recipe={recipe} slot={slot} onPick={() => pick(recipe.id)} />
+          <IdeaCard
+            key={recipe.id}
+            recipe={recipe}
+            slot={slot}
+            link={href(`recipe/${recipe.id}/${dayIdx}/${mealIdx}/vybrat`)}
+            onPick={() => pick(recipe.id)}
+          />
         ))}
-        {loading && <p className="muted center loading-line">Hledám na Rohlíku…</p>}
       </div>
+      <div ref={sentinel} aria-hidden="true" />
+      {waiting && <p className="muted center loading-line">Hledám na Rohlíku…</p>}
+      {!waiting && !more && ideas.length > 0 && <p className="muted center loading-line">To jsou všechny recepty pro tento výběr.</p>}
 
-      <footer className="bottom two">
-        <button type="button" className="btn outline big grow" disabled={loading || left <= 0} onClick={() => setRound(round + 1)}>
-          <Icon.refresh />
-          {left <= 0 ? 'Víc nápadů nemáme' : left < 3 ? `Poslední ${left === 1 ? 'nápad' : 'dva nápady'}` : 'Další tři nápady'}
-        </button>
+      <footer className="bottom">
         <button type="button" className="btn soft big" onClick={done}>
-          Nechat
+          Nechat, jak je
         </button>
       </footer>
     </div>
