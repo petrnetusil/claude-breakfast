@@ -54,18 +54,31 @@ export function PlateArt({ slot }: { slot: Slot }) {
     <svg viewBox="0 0 100 100" className="plate" style={{ color: SLOT[slot].ink }} aria-hidden="true">
       <circle cx="50" cy="53" r="38" fill="rgba(28,38,33,0.10)" />
       <circle cx="50" cy="50" r="38" fill="#FFFFFF" />
-      <circle cx="50" cy="50" r="27" fill="none" stroke="currentColor" strokeWidth="1.5" opacity="0.35" />
+      <circle className="rim" cx="50" cy="50" r="27" fill="none" stroke="currentColor" strokeWidth="1.5" opacity="0.35" />
     </svg>
   );
 }
 
 export function RecipeImage({ recipe, slot, className = '' }: { recipe: Recipe | undefined; slot: Slot; className?: string }) {
-  const [failed, setFailed] = useState(false);
+  // Keyed by URL, so a swapped recipe starts loading again instead of inheriting the old state.
+  const [loaded, setLoaded] = useState<string | null>(null);
+  const [failed, setFailed] = useState<string | null>(null);
+  const src = recipe && failed !== recipe.image ? recipe.image : null;
+  const ready = src !== null && loaded === src;
   return (
-    <div className={`photo ${className}`} style={{ background: SLOT[slot].tint }}>
+    <div className={`photo ${src && !ready ? 'is-loading' : ''} ${className}`} style={{ background: SLOT[slot].tint }}>
       <PlateArt slot={slot} />
-      {recipe && !failed && (
-        <img src={recipe.image} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setFailed(true)} />
+      {src && (
+        <img
+          key={src}
+          src={src}
+          alt=""
+          loading="lazy"
+          referrerPolicy="no-referrer"
+          className={ready ? 'ready' : ''}
+          onLoad={() => setLoaded(src)}
+          onError={() => setFailed(src)}
+        />
       )}
     </div>
   );

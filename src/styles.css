@@ -459,6 +459,63 @@ a {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  opacity: 0;
+  transform: scale(1.06);
+  filter: blur(10px);
+  transition:
+    opacity 0.45s ease,
+    transform 0.7s cubic-bezier(0.2, 0.8, 0.2, 1),
+    filter 0.6s ease;
+}
+.photo img.ready {
+  opacity: 1;
+  transform: none;
+  filter: none;
+}
+
+/* While the photo loads: the plate rim turns and a soft light sweeps over the tile. */
+.photo::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(105deg, transparent 30%, rgba(255, 255, 255, 0.55) 50%, transparent 70%);
+  transform: translateX(-100%);
+  transition: opacity 0.3s ease;
+}
+.photo.is-loading::after {
+  opacity: 1;
+  animation: photo-sweep 1.4s ease-in-out infinite;
+}
+.photo .plate .rim {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.photo.is-loading .plate .rim {
+  stroke-dasharray: 22 8;
+  animation: rim-turn 2.4s linear infinite;
+}
+@keyframes photo-sweep {
+  to {
+    transform: translateX(100%);
+  }
+}
+@keyframes rim-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .photo img {
+    transform: none;
+    filter: none;
+    transition: opacity 0.3s ease;
+  }
+  .photo.is-loading::after,
+  .photo.is-loading .plate .rim {
+    animation: none;
+  }
 }
 .thumb {
   width: 84px;

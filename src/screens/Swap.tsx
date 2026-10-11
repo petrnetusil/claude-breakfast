@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon, RecipeImage, TimeMeta, TopBar } from '../components/ui';
 import { DAY_NAMES, longDate } from '../lib/dates';
 import { candidates, isWeekend, resolveMeal, searchRecipes, suggest, type Filter } from '../lib/planner';
@@ -43,6 +43,15 @@ export function Swap({ dayIdx, mealIdx }: { dayIdx: number; mealIdx: number }) {
   const prefs = { favorites: state.favorites, cooked: state.cooked };
   const all = useMemo(() => candidates(week, dayIdx, slot, filter, prefs), [week, dayIdx, slot, filter, state.favorites, state.cooked]);
   const ideas = suggest(all, round);
+  const left = all.length - ideas.length;
+  const cardsRef = useRef<HTMLDivElement>(null);
+
+  // Bring the first of the newly added ideas into view.
+  useEffect(() => {
+    if (round === 0) return;
+    const fresh = cardsRef.current?.children[round * 3] as HTMLElement | undefined;
+    fresh?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [round]);
   const found = useMemo(() => searchRecipes(query, slot), [query, slot]);
   const searching = query.trim().length > 0;
 
@@ -142,8 +151,8 @@ export function Swap({ dayIdx, mealIdx }: { dayIdx: number; mealIdx: number }) {
               <span>{filter === 'fav' ? 'Srdíčkem u jídla si ho uložíte a příště ho najdete tady.' : 'Zkuste jiný filtr nebo hledání.'}</span>
             </div>
           )}
-          {/* The key changes with the round so the three cards roll in again. */}
-          <div className="cards" key={`${filter}-${round}`}>
+          {/* New ideas are added below; only the new cards roll in. The key resets on a filter change. */}
+          <div className="cards" key={filter} ref={cardsRef}>
             {ideas.map(({ recipe, reason }) => (
               <IdeaCard key={recipe.id} recipe={recipe} slot={slot} reason={reason} onPick={() => pick(recipe.id)} />
             ))}
@@ -152,9 +161,9 @@ export function Swap({ dayIdx, mealIdx }: { dayIdx: number; mealIdx: number }) {
       )}
 
       <footer className="bottom two">
-        <button type="button" className="btn outline big grow" disabled={searching || all.length <= 3} onClick={() => setRound(round + 1)}>
+        <button type="button" className="btn outline big grow" disabled={searching || left <= 0} onClick={() => setRound(round + 1)}>
           <Icon.refresh />
-          Další tři nápady
+          {left <= 0 ? 'Víc nápadů nemáme' : left < 3 ? `Poslední ${left === 1 ? 'nápad' : 'dva nápady'}` : 'Další tři nápady'}
         </button>
         <button type="button" className="btn soft big" onClick={() => goBack(`d/${dayIdx}`)}>
           Nechat

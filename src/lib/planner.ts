@@ -247,10 +247,9 @@ export function candidates(week: WeekPlan, dayIdx: number, slot: Slot, filter: F
 }
 
 /** Three suggestions; `round` pages through the candidates and wraps around. */
+/** Ideas shown after `round` taps on "Další tři nápady": three more each time, never a repeat. */
 export function suggest(all: Suggestion[], round: number): Suggestion[] {
-  if (all.length <= 3) return all;
-  const start = (round * 3) % all.length;
-  return [0, 1, 2].map((i) => all[(start + i) % all.length]);
+  return all.slice(0, (round + 1) * 3);
 }
 
 export function normalize(text: string): string {

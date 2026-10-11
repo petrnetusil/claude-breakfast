@@ -90,12 +90,22 @@ describe('swap suggestions', () => {
     });
   });
 
-  it('pages through candidates three at a time', () => {
-    const all = candidates(week, 1, 've', 'all', prefs);
-    const first = suggest(all, 0).map((s) => s.recipe.id);
-    const second = suggest(all, 1).map((s) => s.recipe.id);
-    expect(first).toHaveLength(3);
-    expect(second.some((id) => first.includes(id))).toBe(false);
+  it('adds three more ideas per round, never repeating one', () => {
+    week.days.forEach((day, dayIdx) => {
+      day.meals.forEach((meal) => {
+        const all = candidates(week, dayIdx, meal.slot, 'all', prefs);
+        const ids = all.map((s) => s.recipe.id);
+        expect(new Set(ids).size, `${dayIdx} ${meal.slot}`).toBe(ids.length);
+        let prev: number[] = [];
+        for (let round = 0; round * 3 < all.length + 3; round++) {
+          const shown = suggest(all, round).map((s) => s.recipe.id);
+          expect(shown.slice(0, prev.length)).toEqual(prev);
+          expect(shown).toHaveLength(Math.min((round + 1) * 3, all.length));
+          prev = shown;
+        }
+        expect(prev).toEqual(ids);
+      });
+    });
   });
 
   it('filters', () => {
