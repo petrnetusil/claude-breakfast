@@ -12,7 +12,7 @@ npm test           # testy plánovače a nákupního seznamu
 npm run build      # statický web do dist/ (jde nahrát na jakýkoli hosting)
 ```
 
-Po každém pushi do výchozí větve se aplikace sama nasadí na GitHub Pages:
+Po každém pushi do větve `master` (produkce) se aplikace sama nasadí na GitHub Pages:
 https://petrnetusil.github.io/claude-breakfast/ (workflow `.github/workflows/pages.yml`).
 
 ## Co funguje
