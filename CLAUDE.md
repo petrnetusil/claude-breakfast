@@ -13,7 +13,7 @@ No Rohlík data may be stored in this repo or cached on the device (owner's rule
 
 ## Layout
 - `src/lib/link.ts` – the week link format (`?t=&lid=&po=…&ne=`), parse and write. The same format is
-  documented for Claude in `docs/claude-projekt.md`; change both together.
+  written by `skill/jidelnicek/scripts/make_link.py` and documented in `docs/claude-projekt.md`.
 - `src/lib/rohlik.ts` – live Rohlík endpoints (cards, detail, search), parsing of amounts, portions,
   times. In-memory only while the page is open.
 - `src/lib/useRohlik.ts` – hooks for cards and details. `src/lib/planner.ts` – meal resolution.
@@ -24,6 +24,9 @@ No Rohlík data may be stored in this repo or cached on the device (owner's rule
   `week`, `shop`, `fav`, `start`.
 - `src/screens/*` – one file per screen. `src/components/ui.tsx` – shared pieces.
 - `docs/` – setup guide for the wife and the Claude Project instructions (Czech).
+- `skill/jidelnicek/` – Claude skill (upload as zip in claude.ai): `SKILL.md` plus
+  `scripts/make_link.py`, which builds the week link. Keep `make_link.py`, `src/lib/link.ts` and
+  `docs/claude-projekt.md` in the same link format.
 
 ## Rules that matter
 - Meal slots: sn (snídaně), sv (svačina), po (polévka), ob (oběd), ve (večeře), de (dezert).
